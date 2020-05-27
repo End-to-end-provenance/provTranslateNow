@@ -7,7 +7,7 @@ import os
 #Huiyun Peng
 #10 Mar 2020
 
-
+#running noworkflow command: python3 -m noworkflow run test5.py
 
 #data is stored in input_db_file
 #call cursor() to create an object of it and use its execute() method to perform SQL
@@ -15,8 +15,8 @@ import os
 # run_num = 13
 #trail 13 is x=1, print(x)
 
-input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 1
+input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
+run_num = 5
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -198,6 +198,19 @@ def get_top_level_component_id():
             else: # add to result, update last_line_num
                 result.append(element)
                 last_line_num = get_last_line_num(element)
+
+
+    # #omit the import statement
+    # for element in result:
+
+    #     valid = True
+    #     name = get_name(element).split()
+    #     for element in name:
+    #         if (element == "import"):
+    #             valid = False
+    #     if (valid == True):
+    #         final.append(element)
+
     return result
 
 def get_first_line(code_component_id):
@@ -361,36 +374,215 @@ def value_type(value):
             return "File"
     return "Data"
 
+def file_mode(name):
+
+    '''
+    if the file_access table exist, get file information
+    '''
+    #get the count of tables with the name
+    c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='file_access' ''')
+    #if the count is 1, then table exists
+    if c.fetchone()[0]==1:
+
+        #print('Table exists.')
+        #get hash value from table
+        temp = []
+        c.execute('SELECT name, mode from file_access where trial_id = ?', (run_num,))
+        for row in c:
+            for char in row:
+                temp.append(char)
+
+        name_mode_pair = {}
+
+        i = 0
+        while i <  len(temp)-1:
+            name_mode_pair[temp[i]] = temp[i+1]
+            i=i+2
+        return name_mode_pair.get(name)
+
+def file_access_table(name):
+
+    stripped_name = name.strip("'")
+
+    '''
+    if the file_access table exist, get file information
+    '''
+    #get the count of tables with the name
+    #c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='file_access' ''')
+    #if the count is 1, then table exists
+    if (file_mode(stripped_name) == "rU"):
+
+        #print('Table exists.')
+        #get hash value from table
+        temp = []
+        c.execute('SELECT name, content_hash_before from file_access where trial_id = ?', (run_num,))
+        for row in c:
+            for char in row:
+                temp.append(char)
+
+        name_hash_pair = {}
+
+        i = 0
+        while i <  len(temp)-1:
+            name_hash_pair[temp[i]] = temp[i+1]
+            i=i+2
+        return name_hash_pair.get(stripped_name)
+
+def file_loc(name):
+    '''
+    if the file_access table exist, get file location
+    '''
+    hash_value = file_access_table(name)
+    if (hash_value != None):
+
+        result = input_db_file.split("/")
+        #pop db file
+        result.pop(-1)
+        result.append("content")
+        #split hash value into a list of integers
+        res = [x for x in str(hash_value)] 
+        #first two numbers
+        first_two = res[:2]
+        #add file hash value to the location
+        result.append("".join(first_two))
+        #remaining numbers
+        remaining = res[2:]
+        result.append("".join(remaining))
+        return "/".join(result) 
+
+def get_elapsedTime(code_component_id):
+    '''
+    get existing elapsedTime for procedure nodes, code-component -> code_block -> activation
+    '''
+    c.execute('SELECT id from code_block where trial_id = ?', (run_num,))
+    code_block_id = []
+    for row in c:
+        for char in row:
+            code_block_id.append(char)
+
+    exist = False
+    #check if this code_component has elapsedTime
+    for element in code_block_id:
+        if (code_component_id == element):
+            exist = True
+
+    if (exist == True):
+        c.execute('SELECT start_checkpoint, code_block_id from activation where trial_id = ?', (run_num,))
+        activation = []
+        for row in c:
+            for char in row:
+                activation.append(char)
+
+        id_time_pair = {}
+        
+        #loop through index
+        for i in range(1, len(activation)):
+            if (i % 2 != 0):
+                id_time_pair[activation[i]] = activation[i-1]
+        return id_time_pair.get(code_component_id)
+
+    else:
+        return -1  
+
+def elpasedTime_timeStamp(elpasedTime):
+    '''
+    change elpasedTime in data nodes into timeStamp
+    '''
+    c.execute('SELECT start from trial where id = ?', (run_num,))
+    for row in c:
+        for element in row:
+            tempStampParser = element.replace('.', ' ').replace(':', ' ').split() 
+    elpasedTimeParser = str(elpasedTime).split(".")
+    newMSecond = int(tempStampParser[-1]) + int(elpasedTimeParser[-1])
+    newSecond = int(tempStampParser[-2]) + int(elpasedTimeParser[0])
+    tempStampParser[-2] = str(newSecond)
+    tempStampParser[-1] = str(newMSecond)
+    return tempStampParser[0] + " " + tempStampParser[1] + ":" + tempStampParser[2] + ":" + tempStampParser[3] + "." + tempStampParser[4]
+
+
+def write_json(dictionary, output_json_file):
+    with open(output_json_file, 'w') as outfile:
+        json.dump(dictionary, outfile, indent=4)
+
+
 
 def __main__():
     get_top_level_component_id()
     length2 = len(result)
     j = 0
+    activity = {}
     while j < length2:
-        print("id: p" + str(j+1))
-        print("name: " + get_first_line(result[j]))
-        print("startLine: " + str(get_line_num(result[j])))
-        print("startCol: " + str(get_col_num(result[j])))
-        print("endLine: " + str(get_last_line_num(result[j])))
-        print("endCol: " + str(get_last_col_num(result[j])))
-        print()
+
+        procedure_node = {}
+        procedure_node["rdt:name"] = get_first_line(result[j])
+        procedure_node["rdt:type"] = "Operation"
+        procedure_node["rdt:elapsedTime"] = get_elapsedTime(result[j])
+        procedure_node["rdt:scriptNum"] = 1
+        procedure_node["rdt:startLine"] = get_line_num(result[j])
+        procedure_node["rdt:startCol"] = get_col_num(result[j])
+        procedure_node["rdt:endLine"] = get_last_line_num(result[j])
+        procedure_node["rdt:endCol"] = get_last_col_num(result[j])
+
+        activity["rdt:p" + str(j+1)] = procedure_node
+
+        #print(procedure_node)
+        #print(json.dumps(procedure_node, indent=4))
+
         j = j+1
+        # print("id: p" + str(j+1))
+        # print("name: " + get_first_line(result[j]))
+        # print("startLine: " + str(get_line_num(result[j])))
+        # print("startCol: " + str(get_col_num(result[j])))
+        # print("endLine: " + str(get_last_line_num(result[j])))
+        # print("endCol: " + str(get_last_col_num(result[j])))
+        # print()
+        # j = j+1
+    print(json.dumps(activity, indent=4))
+
+
 
     get_eval_id()
     length = len(eval_id)
     number = 0
+    entity = {}
     while number < length:
-        print("type: " + value_type(get_value_eval(number+1)))
-        print("id: d" + str(number+1))
-        print("name: " + get_name(get_code_component_id_eval(number+1)))
-        print("value: " + get_value_eval(number+1))
-        print("value type: "+ get_type(get_code_component_id_eval(number+1)))
-        print("scope: ")
-        print("from env: ")
-        print("time: " + str(get_time_eval(number+1)))
-        print("hash: ")
-        print("loc: ")
-        print()
-        number = number+1
+        data_node = {}
+        data_node["rdt:name"] = get_name(get_code_component_id_eval(number+1))
+        data_node["rdt:value"] = get_value_eval(number+1)
+        data_node["rdt:valType"] = get_type(get_code_component_id_eval(number+1))
+        data_node["rdt:type"] = value_type(get_value_eval(number+1))
+        data_node["rdt:scope"]  = ""
+        data_node["rdt:fromEnv"] = False
+        data_node["rdt:hash"] = file_access_table(get_value_eval(number+1))
+        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_time_eval(number+1))
+        data_node["rdt:location"] = file_loc(get_value_eval(number+1))
+
+        entity["rdt:d" + str(number+1)] = data_node
+
+
+        # print(data_node)
+        # print(json.dumps(data_node, indent=4))
+
+        number = number + 1 
+    print(json.dumps(entity, indent=4))
+        # print("type: " + value_type(get_value_eval(number+1)))
+        # print("id: d" + str(number+1))
+        # print("name: " + get_name(get_code_component_id_eval(number+1)))
+        # print("value: " + get_value_eval(number+1))
+        # print("value type: "+ get_type(get_code_component_id_eval(number+1)))
+        # print("scope: ")
+        # print("from env: ")
+        # print("time: " + str(get_time_eval(number+1)))
+        # print("hash: ")
+        # print("loc: ")
+        # print()
+        # number = number+1
+
+    #output to a json file
+    outputdict = {}
+    outputdict["activity"] = activity
+    outputdict["entity"] = entity
+
+    write_json(outputdict, "/Users/huiyunpeng/Desktop/J3.json")
 
 __main__()
