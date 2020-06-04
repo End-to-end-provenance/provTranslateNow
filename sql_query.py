@@ -15,8 +15,13 @@ import os
 # run_num = 13
 #trail 13 is x=1, print(x)
 
-input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
-run_num = 5
+#complex files
+# input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
+# run_num = 5
+
+#simple ones
+input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
+run_num = 4
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -137,26 +142,26 @@ def get_type(code_component_id):
                 i = i+1
     return id_type_pair.get(code_component_id)
 
-# def get_mode(code_component_id):
-#     '''
-#     get mode from code_component_id in code_component table
-#     '''
-#     id_mode_pair = {}
-#     c.execute('SELECT id, mode from code_component where trial_id = ?', (run_num,))
-#     i=1
-#     for row in c:
-#         for char in row:
-#             if (isinstance(char, str)):
-#                 if (char == "r"):
-#                     id_mode_pair[i] = "read"
-#                 elif (char == "w"):
-#                     id_mode_pair[i] = "written"
-#                 elif (char == "d"):
-#                     id_mode_pair[i] = "deleted"
-#                 else:
-#                     id_mode_pair[i] = char
-#                 i = i+1
-#     return id_mode_pair.get(code_component_id)
+def get_mode(code_component_id):
+    '''
+    get mode from code_component_id in code_component table
+    '''
+    id_mode_pair = {}
+    c.execute('SELECT id, mode from code_component where trial_id = ?', (run_num,))
+    i=1
+    for row in c:
+        for char in row:
+            if (isinstance(char, str)):
+                if (char == "r"):
+                    id_mode_pair[i] = "read"
+                elif (char == "w"):
+                    id_mode_pair[i] = "written"
+                elif (char == "d"):
+                    id_mode_pair[i] = "deleted"
+                else:
+                    id_mode_pair[i] = char
+                i = i+1
+    return id_mode_pair.get(code_component_id)
 #
 
 id = []
@@ -228,12 +233,17 @@ def get_lower_level_component(code_component_id):
     '''
     return the details of the lower-level code_componemt for each top-level code_component
     '''
+    if (len(lower_level_component_id)!=0):
+        i = 0
+        while i < len(lower_level_component_id):
+            lower_level_component_id[i] = None
+            i+=1
+
     line_num = get_line_num(code_component_id)
     for element in id:
         if (element != 1 and element != code_component_id):
             if (get_line_num(element) == line_num):
                 lower_level_component_id.append(element)
-
     return lower_level_component_id
 
 # def dependency_table_id_num():
@@ -361,6 +371,20 @@ def get_eval_id():
             eval_id.append(char)
     return eval_id
 
+top_eval_id = []
+def get_top_level_eval_id():
+    '''
+    for every eval id, if value (repr) is <class ..., omit
+    '''
+    get_eval_id()
+    index = 1
+    for element in eval_id:
+        value = get_value_eval(element).split(" ")
+        if(value[0] != '<class'):
+            top_eval_id.append(index)
+        index = index + 1
+    return top_eval_id
+
 def value_type(value):
     '''
     check whether a value is File or not
@@ -448,7 +472,7 @@ def file_loc(name):
         #remaining numbers
         remaining = res[2:]
         result.append("".join(remaining))
-        return "/".join(result) 
+        return "/".join(result)
 
 def get_elapsedTime(code_component_id):
     '''
@@ -499,20 +523,153 @@ def elpasedTime_timeStamp(elpasedTime):
     tempStampParser[-1] = str(newMSecond)
     return tempStampParser[0] + " " + tempStampParser[1] + ":" + tempStampParser[2] + ":" + tempStampParser[3] + "." + tempStampParser[4]
 
+def check_valueType(value):
+
+    #get container
+    temp = list(value)
+    valType = ""
+    container = ""
+    singleType = ""
+
+    if (temp[0] == '<'):
+        singleType = "str"
+    else:
+        try:
+            valType = ast.literal_eval(value)
+            if isinstance(valType, dict):
+                container = "dict"
+            elif isinstance(valType, set):
+                container = "set"
+            elif isinstance(valType, list):
+                container = "list"
+            elif isinstance(valType, tuple):
+                container = "tuple"
+            elif isinstance(valType, str):
+                singleType = "str"
+            elif isinstance(valType, int):
+                singleType = "int"
+            elif isinstance(valType, float):
+                singleType = "float"
+        except ValueError:
+            singleType = "str"
+    if (valType == None):
+        singleType = ""
+
+    #get dimension
+    dimension = []
+    if (container == "dict" or container == "set" or container == "list" or container == "tuple"):
+        dimension.append(len(valType))
+
+    #get type
+    typeField = []
+    if (container == "list" or container == "tuple"):
+        for element in valType:
+            exist = False
+            temp = str(type(element))
+            for element in typeField:
+                if element == temp:
+                    exist = True
+            if (exist == False):
+                typeField.append(temp)
+    elif (container == "dict" or container == "set"):
+        #check key and value type
+        for element in valType:
+            exist1 = False
+            exist2 = False
+            temp1 = str(type(element))
+            temp2 = str(type(valType[element]))
+            for element in typeField:
+                if element == temp1:
+                    exist1 = True
+                if element == temp2:
+                    exist2 = True
+            if (exist1 == False):
+                typeField.append(temp1)
+            if (exist2 == False and exist2 != exist1):
+                typeField.append(temp2)
+
+
+
+
+    #get the final dictionary
+    if (container == ""):
+        return singleType
+    else:
+        typeDict = {}
+        typeDict["container"] = container
+        typeDict["dimension"] = dimension
+        typeDict["type"] = typeField
+
+        return typeDict
+
+def isDp(code_component_id):
+    if (get_type(code_component_id) == "name" and get_mode(code_component_id) == "read"):
+        return True
+    return False
+
+def getPyVersion():
+    c.execute('SELECT value from environment_attr where id = ?', (139,))
+    for element in c:
+        pyVersion = element
+    return pyVersion[0]
+
+def getOS():
+    c.execute('SELECT value from environment_attr where id = ?', (1,))
+    for element in c:
+        os = element
+
+    c.execute('SELECT value from environment_attr where id = ?', (108,))
+    for element in c:
+        osVersion = element
+    return os[0] + osVersion[0]
+
+def getWD():
+    c.execute('SELECT value from environment_attr where id = ?', (121,))
+    for element in c:
+        wd = element
+    return wd[0]
+
+def get_arch():
+    c.execute('SELECT value from environment_attr where id = ?', (136,))
+    for element in c:
+        ar = element
+    return ar[0]
+
+def get_script():
+    c.execute('SELECT value from argument where trial_id = ? and id = ?', (run_num,1,))
+    for element in c:
+        script = element
+    return script[0]
+
+def get_script_time():
+    c.execute('SELECT start from trial where id = ?', (run_num,))
+    for element in c:
+        start = element
+    return start[0]
+
+
+def getVersion(library):
+    version = ""
+    libraryValue = __import__(library, fromlist=[''])
+    try:
+        version = libraryValue.__version__
+    except AttributeError:
+        version = getPyVersion()
+    return version
+
 
 def write_json(dictionary, output_json_file):
     with open(output_json_file, 'w') as outfile:
         json.dump(dictionary, outfile, indent=4)
 
-
-
 def __main__():
+
+    #procedure nodes
     get_top_level_component_id()
     length2 = len(result)
     j = 0
     activity = {}
     while j < length2:
-
         procedure_node = {}
         procedure_node["rdt:name"] = get_first_line(result[j])
         procedure_node["rdt:type"] = "Operation"
@@ -524,65 +681,155 @@ def __main__():
         procedure_node["rdt:endCol"] = get_last_col_num(result[j])
 
         activity["rdt:p" + str(j+1)] = procedure_node
-
-        #print(procedure_node)
-        #print(json.dumps(procedure_node, indent=4))
-
         j = j+1
-        # print("id: p" + str(j+1))
-        # print("name: " + get_first_line(result[j]))
-        # print("startLine: " + str(get_line_num(result[j])))
-        # print("startCol: " + str(get_col_num(result[j])))
-        # print("endLine: " + str(get_last_line_num(result[j])))
-        # print("endCol: " + str(get_last_col_num(result[j])))
-        # print()
-        # j = j+1
     print(json.dumps(activity, indent=4))
 
 
-
-    get_eval_id()
-    length = len(eval_id)
+    #data nodes
+    #get_eval_id()
+    get_top_level_eval_id()
+    length = len(top_eval_id)
     number = 0
     entity = {}
+    d_evalId = {}
     while number < length:
         data_node = {}
-        data_node["rdt:name"] = get_name(get_code_component_id_eval(number+1))
-        data_node["rdt:value"] = get_value_eval(number+1)
-        data_node["rdt:valType"] = get_type(get_code_component_id_eval(number+1))
-        data_node["rdt:type"] = value_type(get_value_eval(number+1))
+        data_node["rdt:name"] = get_name(get_code_component_id_eval(top_eval_id[number]))
+        data_node["rdt:value"] = get_value_eval(top_eval_id[number])
+        data_node["rdt:valType"] = check_valueType(get_value_eval(top_eval_id[number]))
+        #data_node["rdt:valType"] = get_type(get_code_component_id_eval(number+1))
+        data_node["rdt:type"] = value_type(get_value_eval(top_eval_id[number]))
         data_node["rdt:scope"]  = ""
         data_node["rdt:fromEnv"] = False
-        data_node["rdt:hash"] = file_access_table(get_value_eval(number+1))
-        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_time_eval(number+1))
-        data_node["rdt:location"] = file_loc(get_value_eval(number+1))
+        if (file_access_table(get_value_eval(top_eval_id[number])) == None):
+            data_node["rdt:hash"] = ""
+        else:
+            data_node["rdt:hash"] = file_access_table(get_value_eval(top_eval_id[number]))  
+        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_time_eval(top_eval_id[number]))
+        if (file_loc(get_value_eval(top_eval_id[number])) == None):
+            data_node["rdt:location"] = ""
+        else:
+            data_node["rdt:location"] = file_loc(get_value_eval(top_eval_id[number]))
 
         entity["rdt:d" + str(number+1)] = data_node
+        d_evalId[top_eval_id[number]] = number+1
+        number = number + 1
+
+    #environment:
+    environment = {}
+
+    environment["rdt:name"] = "environment"
+    environment["rdt:architecture"] = get_arch()
+    environment["rdt:operatingSystem"] = getOS()
+    environment["rdt:language"] = "Python"
+    environment["rdt:langVersion"] = "Python version " + getPyVersion()
+    environment["rdt:script"] = get_script()
+    environment["rdt:scriptTimeStamp"] = get_script_time()
+    environment["rdt:totalElapsedTime"] = ""
+    environment["rdt:sourcedScripts"] = ""
+    environment["rdt:sourcedScriptTimeStamps"] = ""
+    environment["rdt:workingDirectory"] = getWD()
+    environment["rdt:provDirectory"] = getWD() + "/.noworkflow"
+    environment["rdt:provTimestamp"] = ""
+    environment["rdt:hashAlgorithm"] = ""
+
+    entity["rdt:environment"] = environment
 
 
-        # print(data_node)
-        # print(json.dumps(data_node, indent=4))
+    #library nodes
+    #check import statements in cc table
+    library_count = 1
+    prov_type = {}
+    prov_type["$"] = "prov:Collection"
+    prov_type["type"] = "xsd:QName"
 
-        number = number + 1 
+    for element in result:
+        name = get_name(element).split()
+        for element in name:
+            if (element == "import"):
+                library = {}
+                library["name"] = name[1]
+                library["version"] = getVersion(name[1])
+                library["prov_type"] = prov_type
+                entity["rdt:l" + str(library_count)] = library
+                library_count += 1
+
     print(json.dumps(entity, indent=4))
-        # print("type: " + value_type(get_value_eval(number+1)))
-        # print("id: d" + str(number+1))
-        # print("name: " + get_name(get_code_component_id_eval(number+1)))
-        # print("value: " + get_value_eval(number+1))
-        # print("value type: "+ get_type(get_code_component_id_eval(number+1)))
-        # print("scope: ")
-        # print("from env: ")
-        # print("time: " + str(get_time_eval(number+1)))
-        # print("hash: ")
-        # print("loc: ")
-        # print()
-        # number = number+1
+
+
+    #pp edges
+    wasInformedBy = {}
+    t = 1
+    while t < len(activity):
+        ppDict = {}
+        ppDict["prov:informant"] = "rdt:p" + str(t)
+        ppDict["prov:informed"] = "rdt:p" + str(t+1)
+        wasInformedBy["rdt: pp" + str(t)] = ppDict
+
+        t = t+1
+    print(json.dumps(wasInformedBy, indent=4))
+
+    '''
+    pd edges
+    get procedure nodes, omit 1, get their cc_id
+    for every cc_id, get its lower_level_cc_id_list
+    for every data nodes, if not 1, if name is not int, get eval_id, get code_component_id
+    for these cc_id, if its in lower_level_cc_id_list, get that top_level_cc_id, get_procedure nodes id
+    '''
+    result2 = result[1:]
+
+    data = top_eval_id[1:]
+    data2 = []
+    #if name is not int or float
+    for element in data:
+        try:
+            nameType = ast.literal_eval(get_name(get_code_component_id_eval(element)))
+            if (not isinstance(nameType, int) and not isinstance(nameType, float)):
+                data2.append(element)
+        except ValueError:
+            data2.append(element)
+
+    wasGeneratedBy = {}
+    used = {}
+    count_pd = 1
+    count_dp = 1
+    temp = 2
+    for element3 in result2:
+        lower_cc_list = get_lower_level_component(element3)
+        for element in data2:
+            for element2 in lower_cc_list:
+                if (get_code_component_id_eval(element)==element2):
+                    #check if it is dp edges
+                    #for data nodes
+                    #if code_component table shows 'x', 'name', 'r'
+                    #than it is dp instead of pd
+                    if (isDp(element2) == False):
+                        pd = {}
+                        pd["prov:activity"] = "rdt:p" + str(temp)
+                        pd["prov:entity"] = "rdt:d" + str(d_evalId.get(element))
+                        wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
+                        count_pd = count_pd + 1
+                    else:
+                        dp = {}
+                        dp["prov:entity"] = "rdt:d" + str(d_evalId.get(element))
+                        dp["prov:activity"] = "rdt:p" + str(temp)
+                        used["rdt:dp" + str(count_dp)] = dp
+                        count_dp = count_dp + 1
+
+        temp += 1
+
+    print(json.dumps(wasGeneratedBy, indent=4))
+    print(json.dumps(used, indent=4))
+
+          
 
     #output to a json file
     outputdict = {}
     outputdict["activity"] = activity
     outputdict["entity"] = entity
+    outputdict["wasInformedBy"] = wasInformedBy
+    outputdict["wasGeneratedBy"] = wasGeneratedBy
+    outputdict["used"] = used
 
-    write_json(outputdict, "/Users/huiyunpeng/Desktop/J3.json")
-
+    write_json(outputdict, "/Users/huiyunpeng/Desktop/J2.json")
 __main__()
