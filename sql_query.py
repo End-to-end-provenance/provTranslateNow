@@ -3,7 +3,8 @@ import json
 import ast
 import pandas
 import os
-
+import time
+from datetime import datetime
 #Huiyun Peng
 #10 Mar 2020
 
@@ -379,9 +380,10 @@ def get_top_level_eval_id():
     get_eval_id()
     index = 1
     for element in eval_id:
-        value = get_value_eval(element).split(" ")
-        if(value[0] != '<class'):
-            top_eval_id.append(index)
+        if (get_value_eval(element) != "None"):
+            value = get_value_eval(element).split(" ")
+            if(value[0] != '<class'):
+                top_eval_id.append(index)
         index = index + 1
     return top_eval_id
 
@@ -472,6 +474,20 @@ def file_loc(name):
         #remaining numbers
         remaining = res[2:]
         result.append("".join(remaining))
+        return "/".join(result)
+
+def file_loc_simple(name):
+    '''
+    if the file_access table exist, get file location
+    '''
+    hash_value = file_access_table(name)
+    if (hash_value != None):
+
+        result = input_db_file.split("/")
+        #pop db file
+        result.pop(-1)
+        result.pop(-1)
+        result.append(name)
         return "/".join(result)
 
 def get_elapsedTime(code_component_id):
@@ -613,6 +629,12 @@ def getPyVersion():
         pyVersion = element
     return pyVersion[0]
 
+def getNWFVersion():
+    c.execute('SELECT value from environment_attr where id = ?', (140,))
+    for element in c:
+        pyVersion = element
+    return pyVersion[0]
+
 def getOS():
     c.execute('SELECT value from environment_attr where id = ?', (1,))
     for element in c:
@@ -642,11 +664,51 @@ def get_script():
     return script[0]
 
 def get_script_time():
-    c.execute('SELECT start from trial where id = ?', (run_num,))
+    c.execute('SELECT finish from trial where id = ?', (run_num,))
     for element in c:
         start = element
     return start[0]
 
+def get_prov_time():
+    c.execute('SELECT timestamp from tag where trial_id = ?', (run_num,))
+    for element in c:
+        start = element
+    return start[0]
+
+def get_total_elapsedTime():
+    c.execute('SELECT start from trial where id = ?', (run_num,))
+    for element in c:
+        start = element
+    startTime = start[0].split() 
+    finishTime = get_script_time().split() 
+    FMT = '%H:%M:%S.%f'
+    tdelta = datetime.strptime(finishTime[1], FMT) - datetime.strptime(startTime[1], FMT)
+    result = str(tdelta).replace('.', ' ').replace(':', ' ').split()
+    time = ""
+    if (result[0] != '0'):
+        time = result[0]
+        time +=":"
+        time += result[1]
+        time +=":"
+        time += result[2]
+        time +="."
+        time += result[3]
+
+    elif (result[1] != '00'):
+        time += result[1]
+        time +=":"
+        time += result[2]
+        time +="."
+        time += result[3]
+    elif (result[2] != '00'):
+        time += result[2]
+        time +="."
+        time += result[3]
+    elif (result[3] != '000000'):
+        time += "0"
+        time +="."
+        time += result[3]
+    return time
 
 def getVersion(library):
     version = ""
@@ -657,12 +719,44 @@ def getVersion(library):
         version = getPyVersion()
     return version
 
+def sourceScript_timestamp(file_path):
+    # Get file's Last modification time stamp only in terms of seconds since epoch 
+    modTimesinceEpoc = os.path.getmtime(file_path) 
+    # Convert seconds since epoch to readable timestamp
+    modificationTime = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(modTimesinceEpoc))
+    return modificationTime
+
+def isDuplicate(ss_list, ss_list_element):
+    '''
+    check if the sourcescript list contains duplicates
+    '''
+    for element in ss_list:
+        if (element == ss_list_element):
+            return True
+    return False
 
 def write_json(dictionary, output_json_file):
     with open(output_json_file, 'w') as outfile:
         json.dump(dictionary, outfile, indent=4)
 
 def __main__():
+    prefix = {}
+    prefix["prov"] = "http://www.w3.org/ns/prov#"
+    prefix["rdt"] = "https://github.com/End-to-end-provenance/ExtendedProvJson/blob/master/JSON-format.md" 
+
+    agent = {}
+    a1 = {}
+    a1["rdt:tool.name"] = "noworkflow"
+    a1["rdt:tool.version"] = getNWFVersion()
+    a1["rdt:json.version"] = "2.3"
+    # a1["rdt:args.names"] = []
+    # a1["rdt:args.values"] = []
+    # a1["rdt:args.types"] = []
+    agent["rdt:a1"] = a1
+
+    print(json.dumps(prefix, indent=4))
+    print(json.dumps(agent, indent=4))
+
 
     #procedure nodes
     get_top_level_component_id()
@@ -684,7 +778,8 @@ def __main__():
         j = j+1
     print(json.dumps(activity, indent=4))
 
-
+    sourcedScripts = []
+    sourcedScripts_hash = []
     #data nodes
     #get_eval_id()
     get_top_level_eval_id()
@@ -710,12 +805,19 @@ def __main__():
             data_node["rdt:location"] = ""
         else:
             data_node["rdt:location"] = file_loc(get_value_eval(top_eval_id[number]))
+            if (isDuplicate(sourcedScripts, file_loc_simple(get_value_eval(top_eval_id[number]))) == False):      
+                sourcedScripts.append(file_loc_simple(get_value_eval(top_eval_id[number])))
+                sourcedScripts_hash.append(file_loc(get_value_eval(top_eval_id[number])))
 
         entity["rdt:d" + str(number+1)] = data_node
         d_evalId[top_eval_id[number]] = number+1
         number = number + 1
 
     #environment:
+    sourceScript_ts = []
+    for element in sourcedScripts_hash:
+        sourceScript_ts.append(sourceScript_timestamp(element))
+
     environment = {}
 
     environment["rdt:name"] = "environment"
@@ -725,13 +827,17 @@ def __main__():
     environment["rdt:langVersion"] = "Python version " + getPyVersion()
     environment["rdt:script"] = get_script()
     environment["rdt:scriptTimeStamp"] = get_script_time()
-    environment["rdt:totalElapsedTime"] = ""
-    environment["rdt:sourcedScripts"] = ""
-    environment["rdt:sourcedScriptTimeStamps"] = ""
+    environment["rdt:totalElapsedTime"] = get_total_elapsedTime()
+    if (len(sourcedScripts) == 0):
+        environment["rdt:sourcedScripts"] = ""
+        environment["rdt:sourcedScriptTimeStamps"] = ""
+    else:   
+        environment["rdt:sourcedScripts"] = sourcedScripts
+        environment["rdt:sourcedScriptTimeStamps"] = sourceScript_ts
     environment["rdt:workingDirectory"] = getWD()
     environment["rdt:provDirectory"] = getWD() + "/.noworkflow"
-    environment["rdt:provTimestamp"] = ""
-    environment["rdt:hashAlgorithm"] = ""
+    environment["rdt:provTimestamp"] = get_prov_time()
+    environment["rdt:hashAlgorithm"] = "SHA 1"
 
     entity["rdt:environment"] = environment
 
@@ -745,14 +851,13 @@ def __main__():
 
     for element in result:
         name = get_name(element).split()
-        for element in name:
-            if (element == "import"):
-                library = {}
-                library["name"] = name[1]
-                library["version"] = getVersion(name[1])
-                library["prov_type"] = prov_type
-                entity["rdt:l" + str(library_count)] = library
-                library_count += 1
+        if (name[0] == "import"):
+            library = {}
+            library["name"] = name[1]
+            library["version"] = getVersion(name[1])
+            library["prov_type"] = prov_type
+            entity["rdt:l" + str(library_count)] = library
+            library_count += 1
 
     print(json.dumps(entity, indent=4))
 
@@ -825,6 +930,8 @@ def __main__():
 
     #output to a json file
     outputdict = {}
+    outputdict["prefix"] = prefix
+    outputdict["agent"] = agent
     outputdict["activity"] = activity
     outputdict["entity"] = entity
     outputdict["wasInformedBy"] = wasInformedBy
@@ -833,3 +940,5 @@ def __main__():
 
     write_json(outputdict, "/Users/huiyunpeng/Desktop/J2.json")
 __main__()
+
+
