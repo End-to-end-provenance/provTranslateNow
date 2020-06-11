@@ -27,18 +27,6 @@ run_num = 4
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
 
-# code_component_id = []
-# def get_code_component_id():
-#     '''
-#     returns a list of code_component_id from the evaluation table
-#     '''
-#     c.execute('SELECT code_component_id from evaluation where trial_id = ?', (run_num,))
-#     for row in c:
-#         for char in row:
-#             code_component_id.append(char)
-#     return code_component_id
-
-
 def get_name(code_component_id):
     '''
     get name from code_component_id in code_component table
@@ -205,18 +193,6 @@ def get_top_level_component_id():
                 result.append(element)
                 last_line_num = get_last_line_num(element)
 
-
-    # #omit the import statement
-    # for element in result:
-
-    #     valid = True
-    #     name = get_name(element).split()
-    #     for element in name:
-    #         if (element == "import"):
-    #             valid = False
-    #     if (valid == True):
-    #         final.append(element)
-
     return result
 
 def get_first_line(code_component_id):
@@ -247,67 +223,6 @@ def get_lower_level_component(code_component_id):
                 lower_level_component_id.append(element)
     return lower_level_component_id
 
-# def dependency_table_id_num():
-#     '''
-#     get the number of ids in the dependency table
-#     '''
-#     c.execute('SELECT id from dependency where trial_id = ?', (run_num,))
-#     temp = []
-#     for row in c:
-#         for char in row:
-#             temp.append(char)
-#     return len(temp)
-
-# def get_dependent_id(dependency_table_id):
-#     '''
-#     get the dependent_id from id in the dependency table, this is also the evaluation_id
-#     '''
-#     temp = []
-#     c.execute('SELECT id, dependent_id from dependency where trial_id = ?', (run_num,))
-#     for row in c:
-#         for char in row:
-#             temp.append(char)
-#
-#     id_dependent_pair = {}
-#     a=1
-#     #loop through index
-#     for i in range(len(temp)):
-#         if (i % 2 != 0):
-#             id_dependent_pair[a] = temp[i]
-#             a = a+1
-#     return id_dependent_pair.get(dependency_table_id)
-
-# def get_dependency_id(dependency_table_id):
-#     '''
-#     get the dependency_id from id in the dependency table, this is also the evaluation_id
-#     '''
-#     temp = []
-#     c.execute('SELECT id, dependency_id from dependency where trial_id = ?', (run_num,))
-#     for row in c:
-#         for char in row:
-#             temp.append(char)
-#
-#     id_dependency_pair = {}
-#     a=1
-#     for i in range(len(temp)):
-#         if (i % 2 != 0):
-#             id_dependency_pair[a] = temp[i]
-#             a = a+1
-#     return id_dependency_pair.get(dependency_table_id)
-
-# def get_d_type(dependency_table_id):
-#     '''
-#     get type from id in the dependency table
-#     '''
-#     id_type_pair = {}
-#     c.execute('SELECT id, type from dependency where trial_id = ?', (run_num,))
-#     i=1
-#     for row in c:
-#         for char in row:
-#             if (isinstance(char, str)):
-#                 id_type_pair[i] = char
-#                 i = i+1
-#     return id_type_pair.get(dependency_table_id)
 
 def get_code_component_id_eval(evaluation_id):
     '''
@@ -735,15 +650,14 @@ def isDuplicate(ss_list, ss_list_element):
             return True
     return False
 
-def write_json(dictionary, output_json_file):
-    with open(output_json_file, 'w') as outfile:
-        json.dump(dictionary, outfile, indent=4)
-
-def __main__():
+def prefix():
     prefix = {}
     prefix["prov"] = "http://www.w3.org/ns/prov#"
     prefix["rdt"] = "https://github.com/End-to-end-provenance/ExtendedProvJson/blob/master/JSON-format.md" 
+    print(json.dumps(prefix, indent=4))
+    return prefix
 
+def agent():
     agent = {}
     a1 = {}
     a1["rdt:tool.name"] = "noworkflow"
@@ -753,16 +667,15 @@ def __main__():
     # a1["rdt:args.values"] = []
     # a1["rdt:args.types"] = []
     agent["rdt:a1"] = a1
-
-    print(json.dumps(prefix, indent=4))
     print(json.dumps(agent, indent=4))
+    return agent
 
-
+activity = {}
+def activityKey():
     #procedure nodes
     get_top_level_component_id()
     length2 = len(result)
     j = 0
-    activity = {}
     while j < length2:
         procedure_node = {}
         procedure_node["rdt:name"] = get_first_line(result[j])
@@ -777,22 +690,23 @@ def __main__():
         activity["rdt:p" + str(j+1)] = procedure_node
         j = j+1
     print(json.dumps(activity, indent=4))
+    return activity  
+
+d_evalId = {}
+def entityKey():
 
     sourcedScripts = []
     sourcedScripts_hash = []
     #data nodes
-    #get_eval_id()
     get_top_level_eval_id()
     length = len(top_eval_id)
     number = 0
     entity = {}
-    d_evalId = {}
     while number < length:
         data_node = {}
         data_node["rdt:name"] = get_name(get_code_component_id_eval(top_eval_id[number]))
         data_node["rdt:value"] = get_value_eval(top_eval_id[number])
         data_node["rdt:valType"] = check_valueType(get_value_eval(top_eval_id[number]))
-        #data_node["rdt:valType"] = get_type(get_code_component_id_eval(number+1))
         data_node["rdt:type"] = value_type(get_value_eval(top_eval_id[number]))
         data_node["rdt:scope"]  = ""
         data_node["rdt:fromEnv"] = False
@@ -860,8 +774,9 @@ def __main__():
             library_count += 1
 
     print(json.dumps(entity, indent=4))
+    return entity
 
-
+def pp():
     #pp edges
     wasInformedBy = {}
     t = 1
@@ -873,6 +788,22 @@ def __main__():
 
         t = t+1
     print(json.dumps(wasInformedBy, indent=4))
+    return wasInformedBy
+
+def write_json(dictionary, output_json_file):
+    with open(output_json_file, 'w') as outfile:
+        json.dump(dictionary, outfile, indent=4)
+
+
+
+def __main__():
+    #output to a json file
+    outputdict = {}
+    outputdict["prefix"] = prefix()
+    outputdict["agent"] = agent()
+    outputdict["activity"] = activityKey()
+    outputdict["entity"] = entityKey()
+    outputdict["wasInformedBy"] = pp()
 
     '''
     pd edges
@@ -923,20 +854,11 @@ def __main__():
 
         temp += 1
 
-    print(json.dumps(wasGeneratedBy, indent=4))
-    print(json.dumps(used, indent=4))
-
-          
-
-    #output to a json file
-    outputdict = {}
-    outputdict["prefix"] = prefix
-    outputdict["agent"] = agent
-    outputdict["activity"] = activity
-    outputdict["entity"] = entity
-    outputdict["wasInformedBy"] = wasInformedBy
     outputdict["wasGeneratedBy"] = wasGeneratedBy
     outputdict["used"] = used
+
+    print(json.dumps(wasGeneratedBy, indent=4))
+    print(json.dumps(used, indent=4))
 
     write_json(outputdict, "/Users/huiyunpeng/Desktop/J2.json")
 __main__()
