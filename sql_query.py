@@ -832,9 +832,10 @@ def __main__():
     temp = 2
     for element3 in result2:
         lower_cc_list = get_lower_level_component(element3)
-        for element in data2:
+        for data2_index in range(len(data2)):
+        #for element in data2:
             for element2 in lower_cc_list:
-                if (get_code_component_id_eval(element)==element2):
+                if (get_code_component_id_eval(data2[data2_index])==element2):
                     #check if it is dp edges
                     #for data nodes
                     #if code_component table shows 'x', 'name', 'r'
@@ -842,12 +843,31 @@ def __main__():
                     if (isDp(element2) == False):
                         pd = {}
                         pd["prov:activity"] = "rdt:p" + str(temp)
-                        pd["prov:entity"] = "rdt:d" + str(d_evalId.get(element))
+                        pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
                         wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
                         count_pd = count_pd + 1
                     else:
+                        #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
+                        # n = get_name(get_code_component_id_eval(data2[data2_index]))
+                        # v = get_value_eval(data2[data2_index])
+                        # prev_n = get_name(get_code_component_id_eval(data2[data2_index-1]))
+                        # prev_v = get_value_eval(data2[data2_index-1])
+
+                        # if (n == prev_n and v == prev_v):
+                        #     dp = {}
+                        #     dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index-1]))
+                        #     dp["prov:activity"] = "rdt:p" + str(temp)
+                        #     used["rdt:dp" + str(count_dp)] = dp
+                        #     count_dp = count_dp + 1
+                        # else:
+                        #     #create dp
+                        #     dp = {}
+                        #     dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
+                        #     dp["prov:activity"] = "rdt:p" + str(temp)
+                        #     used["rdt:dp" + str(count_dp)] = dp
+                        #     count_dp = count_dp + 1
                         dp = {}
-                        dp["prov:entity"] = "rdt:d" + str(d_evalId.get(element))
+                        dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index-1]))
                         dp["prov:activity"] = "rdt:p" + str(temp)
                         used["rdt:dp" + str(count_dp)] = dp
                         count_dp = count_dp + 1
