@@ -17,12 +17,12 @@ from datetime import datetime
 #trail 13 is x=1, print(x)
 
 #complex files
-# input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
-# run_num = 5
+input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
+run_num = 5
 
 #simple ones
-input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 4
+# input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
+# run_num = 4
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -290,15 +290,19 @@ def get_eval_id():
 top_eval_id = []
 def get_top_level_eval_id():
     '''
-    for every eval id, if value (repr) is <class ..., omit
+    for every eval id, if value (repr) is not <class ..., add
     '''
     get_eval_id()
     index = 1
+    # for element in eval_id:
+    #     if (get_value_eval(element) != "None"):
+    #         value = get_value_eval(element).split(" ")
+    #         if(value[0] != '<class'):
+    #             top_eval_id.append(index)
+    #     index = index + 1
     for element in eval_id:
-        if (get_value_eval(element) != "None"):
-            value = get_value_eval(element).split(" ")
-            if(value[0] != '<class'):
-                top_eval_id.append(index)
+        if (get_type(get_code_component_id_eval(element)) == "name"):
+            top_eval_id.append(index)
         index = index + 1
     return top_eval_id
 
@@ -680,7 +684,10 @@ def activityKey():
         procedure_node = {}
         procedure_node["rdt:name"] = get_first_line(result[j])
         procedure_node["rdt:type"] = "Operation"
-        procedure_node["rdt:elapsedTime"] = get_elapsedTime(result[j])
+        if (get_elapsedTime(result[j]) == None):
+            procedure_node["rdt:elapsedTime"] = -1
+        else:
+            procedure_node["rdt:elapsedTime"] = get_elapsedTime(result[j])
         procedure_node["rdt:scriptNum"] = 1
         procedure_node["rdt:startLine"] = get_line_num(result[j])
         procedure_node["rdt:startCol"] = get_col_num(result[j])
@@ -706,7 +713,7 @@ def entityKey():
         data_node = {}
         data_node["rdt:name"] = get_name(get_code_component_id_eval(top_eval_id[number]))
         data_node["rdt:value"] = get_value_eval(top_eval_id[number])
-        data_node["rdt:valType"] = check_valueType(get_value_eval(top_eval_id[number]))
+        data_node["rdt:valType"] = str(check_valueType(get_value_eval(top_eval_id[number])))
         data_node["rdt:type"] = value_type(get_value_eval(top_eval_id[number]))
         data_node["rdt:scope"]  = ""
         data_node["rdt:fromEnv"] = False
@@ -814,7 +821,7 @@ def __main__():
     '''
     result2 = result[1:]
 
-    data = top_eval_id[1:]
+    data = top_eval_id
     data2 = []
     #if name is not int or float
     for element in data:
@@ -848,10 +855,17 @@ def __main__():
                         count_pd = count_pd + 1
                     else:
                         #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
-                        # n = get_name(get_code_component_id_eval(data2[data2_index]))
-                        # v = get_value_eval(data2[data2_index])
-                        # prev_n = get_name(get_code_component_id_eval(data2[data2_index-1]))
-                        # prev_v = get_value_eval(data2[data2_index-1])
+                        n = get_name(get_code_component_id_eval(data2[data2_index]))
+                        v = get_value_eval(data2[data2_index])
+                        prev_index = data2_index-1
+                        prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                        prev_v = get_value_eval(data2[prev_index])
+
+                        while(n != prev_n or v != prev_v):
+                            prev_index -=1
+                            prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                            prev_v = get_value_eval(data2[prev_index])
+
 
                         # if (n == prev_n and v == prev_v):
                         #     dp = {}
@@ -867,7 +881,7 @@ def __main__():
                         #     used["rdt:dp" + str(count_dp)] = dp
                         #     count_dp = count_dp + 1
                         dp = {}
-                        dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index-1]))
+                        dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
                         dp["prov:activity"] = "rdt:p" + str(temp)
                         used["rdt:dp" + str(count_dp)] = dp
                         count_dp = count_dp + 1
