@@ -18,7 +18,7 @@ from datetime import datetime
 
 #complex files
 input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
-run_num = 5
+run_num = 7
 
 #simple ones
 # input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
@@ -72,7 +72,7 @@ def get_col_num(code_component_id):
 
     id_line_pair = {}
     a=1
-    #loop through index
+
     for i in range(len(temp)):
         if (i % 2 != 0):
             id_line_pair[a] = temp[i]
@@ -293,17 +293,11 @@ def get_top_level_eval_id():
     for every eval id, if value (repr) is not <class ..., add
     '''
     get_eval_id()
-    index = 1
-    # for element in eval_id:
-    #     if (get_value_eval(element) != "None"):
-    #         value = get_value_eval(element).split(" ")
-    #         if(value[0] != '<class'):
-    #             top_eval_id.append(index)
-    #     index = index + 1
     for element in eval_id:
         if (get_type(get_code_component_id_eval(element)) == "name"):
-            top_eval_id.append(index)
-        index = index + 1
+            value = get_value_eval(element).split(" ")
+            if value[0] != '<module':
+                top_eval_id.append(element)
     return top_eval_id
 
 def value_type(value):
@@ -329,7 +323,6 @@ def file_mode(name):
     #if the count is 1, then table exists
     if c.fetchone()[0]==1:
 
-        #print('Table exists.')
         #get hash value from table
         temp = []
         c.execute('SELECT name, mode from file_access where trial_id = ?', (run_num,))
@@ -357,7 +350,6 @@ def file_access_table(name):
     #if the count is 1, then table exists
     if (file_mode(stripped_name) == "rU"):
 
-        #print('Table exists.')
         #get hash value from table
         temp = []
         c.execute('SELECT name, content_hash_before from file_access where trial_id = ?', (run_num,))
@@ -542,39 +534,14 @@ def isDp(code_component_id):
         return True
     return False
 
-def getPyVersion():
-    c.execute('SELECT value from environment_attr where id = ?', (139,))
+def get_environment_info(attribute_id_num):
+    c.execute('SELECT value from environment_attr where id = ?', (attribute_id_num,))
     for element in c:
-        pyVersion = element
-    return pyVersion[0]
-
-def getNWFVersion():
-    c.execute('SELECT value from environment_attr where id = ?', (140,))
-    for element in c:
-        pyVersion = element
-    return pyVersion[0]
+        envir = element
+    return envir[0]
 
 def getOS():
-    c.execute('SELECT value from environment_attr where id = ?', (1,))
-    for element in c:
-        os = element
-
-    c.execute('SELECT value from environment_attr where id = ?', (108,))
-    for element in c:
-        osVersion = element
-    return os[0] + osVersion[0]
-
-def getWD():
-    c.execute('SELECT value from environment_attr where id = ?', (121,))
-    for element in c:
-        wd = element
-    return wd[0]
-
-def get_arch():
-    c.execute('SELECT value from environment_attr where id = ?', (136,))
-    for element in c:
-        ar = element
-    return ar[0]
+    return get_environment_info(1) + get_environment_info(108)
 
 def get_script():
     c.execute('SELECT value from argument where trial_id = ? and id = ?', (run_num,1,))
@@ -635,7 +602,7 @@ def getVersion(library):
     try:
         version = libraryValue.__version__
     except AttributeError:
-        version = getPyVersion()
+        version = get_environment_info(139)
     return version
 
 def sourceScript_timestamp(file_path):
@@ -665,7 +632,7 @@ def agent():
     agent = {}
     a1 = {}
     a1["rdt:tool.name"] = "noworkflow"
-    a1["rdt:tool.version"] = getNWFVersion()
+    a1["rdt:tool.version"] = get_environment_info(140)
     a1["rdt:json.version"] = "2.3"
     # a1["rdt:args.names"] = []
     # a1["rdt:args.values"] = []
@@ -714,7 +681,10 @@ def entityKey():
         data_node["rdt:name"] = get_name(get_code_component_id_eval(top_eval_id[number]))
         data_node["rdt:value"] = get_value_eval(top_eval_id[number])
         data_node["rdt:valType"] = str(check_valueType(get_value_eval(top_eval_id[number])))
-        data_node["rdt:type"] = value_type(get_value_eval(top_eval_id[number]))
+        if (file_access_table(get_value_eval(top_eval_id[number])) == None):
+            data_node["rdt:type"] = "Data"
+        else:
+            data_node["rdt:type"] = "File"
         data_node["rdt:scope"]  = ""
         data_node["rdt:fromEnv"] = False
         if (file_access_table(get_value_eval(top_eval_id[number])) == None):
@@ -742,10 +712,10 @@ def entityKey():
     environment = {}
 
     environment["rdt:name"] = "environment"
-    environment["rdt:architecture"] = get_arch()
+    environment["rdt:architecture"] = get_environment_info(136)
     environment["rdt:operatingSystem"] = getOS()
     environment["rdt:language"] = "Python"
-    environment["rdt:langVersion"] = "Python version " + getPyVersion()
+    environment["rdt:langVersion"] = "Python version " + get_environment_info(139)
     environment["rdt:script"] = get_script()
     environment["rdt:scriptTimeStamp"] = get_script_time()
     environment["rdt:totalElapsedTime"] = get_total_elapsedTime()
@@ -755,8 +725,8 @@ def entityKey():
     else:   
         environment["rdt:sourcedScripts"] = sourcedScripts
         environment["rdt:sourcedScriptTimeStamps"] = sourceScript_ts
-    environment["rdt:workingDirectory"] = getWD()
-    environment["rdt:provDirectory"] = getWD() + "/.noworkflow"
+    environment["rdt:workingDirectory"] = get_environment_info(121)
+    environment["rdt:provDirectory"] = get_environment_info(121) + "/.noworkflow"
     environment["rdt:provTimestamp"] = get_prov_time()
     environment["rdt:hashAlgorithm"] = "SHA 1"
 
@@ -847,39 +817,43 @@ def __main__():
                     #for data nodes
                     #if code_component table shows 'x', 'name', 'r'
                     #than it is dp instead of pd
+                    n = get_name(get_code_component_id_eval(data2[data2_index]))
+                    v = get_value_eval(data2[data2_index])
+                    prev_index = data2_index-1
+                    prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                    prev_v = get_value_eval(data2[prev_index])
+                    
                     if (isDp(element2) == False):
-                        pd = {}
-                        pd["prov:activity"] = "rdt:p" + str(temp)
-                        pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
-                        wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
-                        count_pd = count_pd + 1
+                        #check whether there's duplicates
+                        hasDuplicate = False;
+                        while(prev_index>=0):
+                            if (n == prev_n and v == prev_v):
+                                if (preTemp!=temp):
+                                    pd = {}
+                                    pd["prov:activity"] = "rdt:p" + str(temp)
+                                    pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
+                                    wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
+                                    count_pd = count_pd + 1
+                                hasDuplicate = True;
+                                break;
+                            prev_index-=1
+                            prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                            prev_v = get_value_eval(data2[prev_index])
+
+                        if (hasDuplicate == False):
+                            pd = {}
+                            pd["prov:activity"] = "rdt:p" + str(temp)
+                            pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
+                            wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
+                            count_pd = count_pd + 1
+                            preTemp = temp
                     else:
                         #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
-                        n = get_name(get_code_component_id_eval(data2[data2_index]))
-                        v = get_value_eval(data2[data2_index])
-                        prev_index = data2_index-1
-                        prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
-                        prev_v = get_value_eval(data2[prev_index])
-
                         while(n != prev_n or v != prev_v):
                             prev_index -=1
                             prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
                             prev_v = get_value_eval(data2[prev_index])
 
-
-                        # if (n == prev_n and v == prev_v):
-                        #     dp = {}
-                        #     dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index-1]))
-                        #     dp["prov:activity"] = "rdt:p" + str(temp)
-                        #     used["rdt:dp" + str(count_dp)] = dp
-                        #     count_dp = count_dp + 1
-                        # else:
-                        #     #create dp
-                        #     dp = {}
-                        #     dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
-                        #     dp["prov:activity"] = "rdt:p" + str(temp)
-                        #     used["rdt:dp" + str(count_dp)] = dp
-                        #     count_dp = count_dp + 1
                         dp = {}
                         dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
                         dp["prov:activity"] = "rdt:p" + str(temp)
