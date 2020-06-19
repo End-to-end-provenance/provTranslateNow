@@ -12,9 +12,7 @@ from datetime import datetime
 
 #data is stored in input_db_file
 #call cursor() to create an object of it and use its execute() method to perform SQL
-# input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
-# run_num = 13
-#trail 13 is x=1, print(x)
+
 
 #complex files
 # input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
@@ -22,7 +20,7 @@ from datetime import datetime
 
 #simple ones
 input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 9
+run_num = 7
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -41,69 +39,16 @@ def get_name(code_component_id):
                 i = i+1
     return id_name_pair.get(code_component_id)
 
-def get_line_num(code_component_id):
-    '''
-    get first_char_line from code_component_id in code_component table
-    '''
+def get_line_col_info(code_component_id, item):
     temp = []
-    c.execute('SELECT id, first_char_line from code_component where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_line_pair = {}
-    a=1
-    #loop through index
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_line_pair[a] = temp[i]
-            a = a+1
-    return id_line_pair.get(code_component_id)
-
-def get_col_num(code_component_id):
-    '''
-    get first_char_column from code_component_id in code_component table
-    '''
-    temp = []
-    c.execute('SELECT id, first_char_column from code_component where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_line_pair = {}
-    a=1
-
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_line_pair[a] = temp[i]
-            a = a+1
-    return id_line_pair.get(code_component_id)
-
-def get_last_line_num(code_component_id):
-    '''
-    get last_char_line from code_component_id in code_component table
-    '''
-    temp = []
-    c.execute('SELECT id, last_char_line from code_component where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_line_pair = {}
-    a=1
-    #loop through index
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_line_pair[a] = temp[i]
-            a = a+1
-    return id_line_pair.get(code_component_id)
-
-def get_last_col_num(code_component_id):
-    '''
-    get last_char_column from code_component_id in code_component table
-    '''
-    temp = []
-    c.execute('SELECT id, last_char_column from code_component where trial_id = ?', (run_num,))
+    if (item == "last_char_column"):
+        c.execute('SELECT id, last_char_column from code_component where trial_id = ?', (run_num,))
+    elif (item == "last_char_line"):
+        c.execute('SELECT id, last_char_line from code_component where trial_id = ?', (run_num,))
+    elif (item == "first_char_column"):
+        c.execute('SELECT id, first_char_column from code_component where trial_id = ?', (run_num,))
+    elif (item == "first_char_line"):
+        c.execute('SELECT id, first_char_line from code_component where trial_id = ?', (run_num,))
     for row in c:
         for char in row:
             temp.append(char)
@@ -152,6 +97,59 @@ def get_mode(code_component_id):
                 i = i+1
     return id_mode_pair.get(code_component_id)
 
+id = []
+result = []
+def get_top_level_component_id():
+    '''
+    returns a list of top-level code_component
+    '''
+    c.execute('SELECT id from code_component where trial_id = ?', (run_num,))
+    #get all id
+    for row in c:
+        for char in row:
+            id.append(char)
+    #select the top_level_component id
+    top_level_component_id = []
+    #for code component with single lines
+    line_num = 0
+    for element in id:
+        if (get_type(element) != "module"):
+            #skip the first line
+            if (get_type(element) == "script"):
+                top_level_component_id.append(element)
+            else:
+                if (line_num != get_line_col_info(element, "first_char_line")):
+                    top_level_component_id.append(element)
+                    line_num = get_line_col_info(element, "first_char_line")
+
+
+    #for code component with mutiple lines
+    #if it is in a single line and line_num <= last_line_num: remove
+    last_line_num = 0
+
+    #old version, more fine-grained
+    # for element in top_level_component_id:
+    #     if (get_type(element) == "script" or get_type(element) == "function_def" ):
+    #         result.append(element)
+    #     else:
+    #         if (get_last_line_num(element) == get_line_num(element)):
+    #             if (get_line_num(element) > last_line_num):
+    #                 result.append(element)
+    #                 last_line_num = get_last_line_num(element)
+    #         else: # add to result, update last_line_num
+    #             result.append(element)
+    #             last_line_num = get_last_line_num(element)
+
+    for element in top_level_component_id:
+        if (get_type(element) == "script"):
+            result.append(element)
+        else:
+            if (get_line_col_info(element, "first_char_line") > last_line_num):
+                result.append(element)
+                last_line_num = get_line_col_info(element, "last_char_line")
+    return result
+
+
 # id = []
 # result = []
 # def get_top_level_component_id():
@@ -173,7 +171,7 @@ def get_mode(code_component_id):
 #             if (get_type(element) == "script"):
 #                 top_level_component_id.append(element)
 #             else:
-#                 if (line_num != get_line_num(element)):
+#                 if (line_num < get_line_num(element)):
 #                     top_level_component_id.append(element)
 #                     line_num = get_line_num(element)
 
@@ -196,67 +194,14 @@ def get_mode(code_component_id):
 #     #             last_line_num = get_last_line_num(element)
 
 #     for element in top_level_component_id:
-#         if (get_type(element) == "script"):
-#             result.append(element)
-#         else:
-#             if (get_line_num(element) > last_line_num):
-#                 result.append(element)
-#                 last_line_num = get_last_line_num(element)
+#         result.append(element)
+#         # if (get_type(element) == "script"):
+#         #     result.append(element)
+#         # else:
+#         #     if (get_line_num(element) > last_line_num):
+#         #         result.append(element)
+#         #         last_line_num = get_last_line_num(element)
 #     return result
-
-
-id = []
-result = []
-def get_top_level_component_id():
-    '''
-    returns a list of top-level code_component
-    '''
-    c.execute('SELECT id from code_component where trial_id = ?', (run_num,))
-    #get all id
-    for row in c:
-        for char in row:
-            id.append(char)
-    #select the top_level_component id
-    top_level_component_id = []
-    #for code component with single lines
-    line_num = 0
-    for element in id:
-        if (get_type(element) != "module"):
-            #skip the first line
-            if (get_type(element) == "script"):
-                top_level_component_id.append(element)
-            else:
-                if (line_num < get_line_num(element)):
-                    top_level_component_id.append(element)
-                    line_num = get_line_num(element)
-
-
-    #for code component with mutiple lines
-    #if it is in a single line and line_num <= last_line_num: remove
-    last_line_num = 0
-
-    #old version, more fine-grained
-    # for element in top_level_component_id:
-    #     if (get_type(element) == "script" or get_type(element) == "function_def" ):
-    #         result.append(element)
-    #     else:
-    #         if (get_last_line_num(element) == get_line_num(element)):
-    #             if (get_line_num(element) > last_line_num):
-    #                 result.append(element)
-    #                 last_line_num = get_last_line_num(element)
-    #         else: # add to result, update last_line_num
-    #             result.append(element)
-    #             last_line_num = get_last_line_num(element)
-
-    for element in top_level_component_id:
-        result.append(element)
-        # if (get_type(element) == "script"):
-        #     result.append(element)
-        # else:
-        #     if (get_line_num(element) > last_line_num):
-        #         result.append(element)
-        #         last_line_num = get_last_line_num(element)
-    return result
 
 def get_first_line(code_component_id):
     '''
@@ -279,10 +224,10 @@ def get_lower_level_component(code_component_id):
             lower_level_component_id[i] = None
             i+=1
 
-    line_num = get_line_num(code_component_id)
+    line_num = get_line_col_info(code_component_id, "first_char_line")
     for element in id:
         if (element != 1 and element != code_component_id):
-            if (get_line_num(element) == line_num):
+            if (get_line_col_info(element, "first_char_line") == line_num):
                 lower_level_component_id.append(element)
     return lower_level_component_id
 
@@ -719,10 +664,10 @@ def activityKey():
         else:
             procedure_node["rdt:elapsedTime"] = get_elapsedTime(result[j])
         procedure_node["rdt:scriptNum"] = 1
-        procedure_node["rdt:startLine"] = get_line_num(result[j])
-        procedure_node["rdt:startCol"] = get_col_num(result[j])
-        procedure_node["rdt:endLine"] = get_last_line_num(result[j])
-        procedure_node["rdt:endCol"] = get_last_col_num(result[j])
+        procedure_node["rdt:startLine"] = get_line_col_info(result[j], "first_char_line")
+        procedure_node["rdt:startCol"] = get_line_col_info(result[j], "first_char_column")
+        procedure_node["rdt:endLine"] = get_line_col_info(result[j], "last_char_line")
+        procedure_node["rdt:endCol"] = get_line_col_info(result[j], "last_char_column")
 
         activity["rdt:p" + str(j+1)] = procedure_node
         j = j+1
@@ -834,17 +779,9 @@ def write_json(dictionary, output_json_file):
     with open(output_json_file, 'w') as outfile:
         json.dump(dictionary, outfile, indent=4)
 
-
-
-def __main__():
-    #output to a json file
-    outputdict = {}
-    outputdict["prefix"] = prefix()
-    outputdict["agent"] = agent()
-    outputdict["activity"] = activityKey()
-    outputdict["entity"] = entityKey()
-    outputdict["wasInformedBy"] = pp()
-
+wasGeneratedBy = {}
+used = {}
+def edges():
     '''
     pd edges
     get procedure nodes, get their cc_id
@@ -865,8 +802,6 @@ def __main__():
         except ValueError:
             data2.append(element)
 
-    wasGeneratedBy = {}
-    used = {}
     count_pd = 1
     count_dp = 1
     temp = 2
@@ -937,13 +872,24 @@ def __main__():
                                 used["rdt:dp" + str(count_dp)] = dp
                                 count_dp = count_dp + 1
         temp += 1
-
-    outputdict["wasGeneratedBy"] = wasGeneratedBy
-    outputdict["used"] = used
-
     print(json.dumps(wasGeneratedBy, indent=4))
     print(json.dumps(used, indent=4))
+    return wasGeneratedBy, used
 
+
+
+def __main__():
+
+    #output to a json file
+    outputdict = {}
+    outputdict["prefix"] = prefix()
+    outputdict["agent"] = agent()
+    outputdict["activity"] = activityKey()
+    outputdict["entity"] = entityKey()
+    outputdict["wasInformedBy"] = pp()
+    edges()
+    outputdict["wasGeneratedBy"] = wasGeneratedBy
+    outputdict["used"] = used
     write_json(outputdict, "/Users/huiyunpeng/Desktop/J2.json")
 __main__()
 
