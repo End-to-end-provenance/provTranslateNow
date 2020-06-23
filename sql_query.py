@@ -20,7 +20,7 @@ from datetime import datetime
 
 #simple ones
 input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 12
+run_num = 7
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -134,7 +134,12 @@ def get_top_level_component_id():
             if (get_line_col_info(element, "first_char_line") > last_line_num):
                 result.append(element)
                 last_line_num = get_line_col_info(element, "last_char_line")
+ 
+             
     return result
+
+
+
 
 
 # id = []
@@ -199,24 +204,38 @@ def get_first_line(code_component_id):
     name_list = name.split('\n')
     return name_list[0]
 
+for_loop_range = {}
+def get_for_loop_range():
 
-lower_level_component_id = []
-def get_lower_level_component(code_component_id):
-    '''
-    return the details of the lower-level code_componemt for each top-level code_component
-    '''
-    if (len(lower_level_component_id)!=0):
-        i = 0
-        while i < len(lower_level_component_id):
-            lower_level_component_id[i] = None
-            i+=1
+    for element in result:
+        if (get_type(element) == "for"):
+            #parse for val in x:\n\tif(val%2 == 0):\n\t\tcount = count + 1
+            #to val
+            temp = get_first_line(element).split(" ")
+            line_list = []
+            line_list.append(get_line_col_info(element, "first_char_line"))
+            line_list.append(get_line_col_info(element, "last_char_line"))
+            for_loop_range[temp[1]] = line_list
+    return for_loop_range
 
-    line_num = get_line_col_info(code_component_id, "first_char_line")
-    for element in id:
-        if (element != 1 and element != code_component_id):
-            if (get_line_col_info(element, "first_char_line") == line_num):
-                lower_level_component_id.append(element)
-    return lower_level_component_id
+
+# lower_level_component_id = []
+# def get_lower_level_component(code_component_id):
+#     '''
+#     return the details of the lower-level code_componemt for each top-level code_component
+#     '''
+#     if (len(lower_level_component_id)!=0):
+#         i = 0
+#         while i < len(lower_level_component_id):
+#             lower_level_component_id[i] = None
+#             i+=1
+
+#     line_num = get_line_col_info(code_component_id, "first_char_line")
+#     for element in id:
+#         if (element != 1 and element != code_component_id):
+#             if (get_line_col_info(element, "first_char_line") == line_num):
+#                 lower_level_component_id.append(element)
+#     return lower_level_component_id
 
 
 def get_code_component_id_eval(evaluation_id):
@@ -282,6 +301,22 @@ def get_eval_id():
             eval_id.append(char)
     return eval_id
 
+def in_for_loop(eval_cc_id):
+    '''
+    delete datas inside for loop iterations
+    E.G. for val in x
+    delete val
+    '''
+    get_for_loop_range()
+    for element in for_loop_range:
+        #element == val
+        #for_loop_range.get(element) == [3, 5]
+        if (element == get_name(eval_cc_id)):
+            if (for_loop_range.get(element)[0] <= get_line_col_info(eval_cc_id, "first_char_line") and get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
+                return True
+    return False
+
+
 top_eval_id = []
 def get_top_level_eval_id():
     '''
@@ -292,10 +327,11 @@ def get_top_level_eval_id():
         if (get_type(get_code_component_id_eval(element)) == "name" or 
             get_type(get_code_component_id_eval(element)) == "function_def" or 
             get_type(get_code_component_id_eval(element)) == "call"):
-            if (get_value_eval(element)!=str(None)):
+            if (get_value_eval(element)!=str(None) and in_for_loop(get_code_component_id_eval(element)) == False):
                 value = get_value_eval(element).split(" ")
                 if value[0] != '<module':
                     top_eval_id.append(element)
+    print(top_eval_id)
     return top_eval_id
 
 def value_type(value):
@@ -799,7 +835,7 @@ def edges():
     temp = 2
     #element is cc id
     for element3 in result2:
-        lower_cc_list = get_lower_level_component(element3)
+        #lower_cc_list = get_lower_level_component(element3)
         for data2_index in range(len(data2)):
             #no lower_level_cc_id_list anymore
             #check whether the cc in eval is in the line range of a procedure node
