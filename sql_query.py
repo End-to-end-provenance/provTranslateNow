@@ -14,7 +14,7 @@ from datetime import datetime
 #call cursor() to create an object of it and use its execute() method to perform SQL
 
 
-#complex files
+#real python scripts
 # input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
 # run_num = 4
 
@@ -22,11 +22,11 @@ from datetime import datetime
 # run_num = 6
 
 #simple ones
-input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 21
-#bugs hear
 # input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-# run_num = 24
+# run_num = 21
+#bugs hear
+input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
+run_num = 17
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
@@ -285,7 +285,7 @@ def in_function(eval_cc_id):
 top_eval_id = []
 def get_top_level_eval_id():
     '''
-    for every eval id, if value (repr) is not <class ..., add
+    select top level evaluation ids
     '''
     temp_top_eval_id = []
     get_eval_id()
@@ -848,90 +848,6 @@ def edges():
     count_pd = 1
     count_dp = 1
     temp = 2
-    # for element3 in result2:
-    #     lower_cc_list = get_lower_level_component(element3)
-    #     for data2_index in range(len(data2)):
-    #         if (get_code_component_id_eval(data2[data2_index]) == element3):
-    #             pd = {}
-    #             pd["prov:activity"] = "rdt:p" + str(temp)
-    #             pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
-    #             wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
-    #             count_pd = count_pd + 1
-    #         else:          
-    #             for element2 in lower_cc_list:
-    #                 if (get_code_component_id_eval(data2[data2_index])==element2):
-    #                     #check if it is dp edges
-    #                     #for data nodes
-    #                     #if code_component table shows 'x', 'name', 'r'
-    #                     #than it is dp instead of pd
-    #                     n = get_name(get_code_component_id_eval(data2[data2_index]))
-    #                     v = get_value_eval(data2[data2_index])
-    #                     prev_index = data2_index-1
-    #                     prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
-    #                     prev_v = get_value_eval(data2[prev_index])
-
-    #                     #check function data nodes       
-    #                     if (get_type(get_code_component_id_eval(data2[data2_index])) == "call"):
-    #                         #dp nodes
-    #                         func_name = get_func_name(data2[data2_index])
-    #                         while(prev_index >= 0):
-    #                             if (func_name == prev_n):
-    #                                 dp = {}
-    #                                 dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
-    #                                 dp["prov:activity"] = "rdt:p" + str(temp)
-    #                                 used["rdt:dp" + str(count_dp)] = dp
-    #                                 count_dp = count_dp + 1
-    #                                 break;
-    #                             prev_index -= 1
-    #                             prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
-
-    #                     elif (isDp(element2) == False):
-    #                         #check whether there's duplicates
-    #                         hasDuplicate = False
-    #                         while(prev_index>=0):
-    #                             if (n == prev_n and v == prev_v):
-    #                                 if (preTemp!=temp):
-    #                                     pd = {}
-    #                                     pd["prov:activity"] = "rdt:p" + str(temp)
-    #                                     pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
-    #                                     wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
-    #                                     count_pd = count_pd + 1
-    #                                 hasDuplicate = True;
-    #                                 break;
-    #                             prev_index-=1
-    #                             prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
-    #                             prev_v = get_value_eval(data2[prev_index])
-
-    #                         if (hasDuplicate == False):
-    #                             pd = {}
-    #                             pd["prov:activity"] = "rdt:p" + str(temp)
-    #                             pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
-    #                             wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
-    #                             count_pd = count_pd + 1
-    #                             preTemp = temp
-    #                     elif (isDp(element2) == True):
-    #                         #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
-    #                         while(n != prev_n or v != prev_v and prev_index>=0):
-    #                             prev_index -=1
-    #                             prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
-    #                             prev_v = get_value_eval(data2[prev_index])
-    #                         if (n!=prev_n or v !=prev_v):
-
-    #                             dp = {}
-    #                             dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[data2_index]))
-    #                             dp["prov:activity"] = "rdt:p" + str(temp)
-    #                             used["rdt:dp" + str(count_dp)] = dp
-    #                             count_dp = count_dp + 1
-    #                         else:
-
-    #                             dp = {}
-    #                             dp["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
-    #                             dp["prov:activity"] = "rdt:p" + str(temp)
-    #                             used["rdt:dp" + str(count_dp)] = dp
-    #                             count_dp = count_dp + 1
-
-
-    #     temp += 1
     #element is cc id
     for element3 in result2:
         #lower_cc_list = get_lower_level_component(element3)
@@ -971,14 +887,17 @@ def edges():
                         hasDuplicate = False
                         while(prev_index>=0):
                             if (n == prev_n and v == prev_v):
-                                if (preTemp!=temp):
-                                    pd = {}
-                                    pd["prov:activity"] = "rdt:p" + str(temp)
-                                    pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
-                                    wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
-                                    count_pd = count_pd + 1
-                                hasDuplicate = True;
-                                break;
+                                #check whether the line numbers of p ndoes are the same
+                                if (get_line_col_info(get_code_component_id_eval(data2[data2_index]), "first_char_line") == 
+                                    get_line_col_info(get_code_component_id_eval(data2[prev_index]), "first_char_line")):
+                                    if (preTemp!=temp):
+                                        pd = {}
+                                        pd["prov:activity"] = "rdt:p" + str(temp)
+                                        pd["prov:entity"] = "rdt:d" + str(d_evalId.get(data2[prev_index]))
+                                        wasGeneratedBy["rdt:pd" + str(count_pd)] = pd
+                                        count_pd = count_pd + 1
+                                    hasDuplicate = True;
+                                    break;
                             prev_index-=1
                             prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
                             prev_v = get_value_eval(data2[prev_index])
