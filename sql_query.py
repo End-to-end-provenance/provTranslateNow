@@ -1,10 +1,9 @@
 import sqlite3
 import json
 import ast
-import pandas
 import os
 import time
-from datetime import datetime
+from sql_info import Sql_info
 #Huiyun Peng
 #10 Mar 2020
 
@@ -15,93 +14,39 @@ from datetime import datetime
 
 
 #real python scripts
-input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
-run_num = 4
+# input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
+# run_num = 4
 
-# input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
-# run_num = 6
+input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
+run_num = 6
 
 #simple ones
 # input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
 # run_num = 21
-#bugs hear
 
 # input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-# run_num = 26
+# run_num = 25
 
-db = sqlite3.connect(input_db_file, uri=True)
-c = db.cursor()
+sql_info = Sql_info(input_db_file, run_num)
 
-def get_basic_info(id, info):
-    #cc_id
-    #get name from code_component_id in code_component table
-    if (info == "name"):     
-        c.execute('SELECT id, name from code_component where trial_id = ?', (run_num,))
-    #get type from code_component_id in code_component table
-    elif (info == "type"):
-        c.execute('SELECT id, type from code_component where trial_id = ?', (run_num,))
-    #get mode from code_component_id in code_component table
-    elif (info == "mode" ):
-        c.execute('SELECT id, mode from code_component where trial_id = ?', (run_num,))
-    #eval_id
-    elif (info == "code_component_id"):
-        c.execute('SELECT id, code_component_id from evaluation where trial_id = ?', (run_num,))
-    elif (info == "repr"):
-        c.execute('SELECT id, repr from evaluation where trial_id = ?', (run_num,))
-    #get time from evaluation table
-    elif(info == "checkpoint"):
-        c.execute('SELECT id, checkpoint from evaluation where trial_id = ?', (run_num,))
-
-    id_info = c.fetchall()
-    id_info_pair = dict(id_info)
-    return id_info_pair.get(id)
-
-def get_code_component_id_eval(evaluation_id):
-    #get the code_component_id from evaluation_id in the evaluation table
-    return get_basic_info(evaluation_id, "code_component_id")
-
-def get_value_eval(evaluation_id):
-    #get repr(value) from evaluation table
-    return get_basic_info(evaluation_id, "repr")
-
-def get_line_col_info(code_component_id, item):
-    if (item == "last_char_column"):
-        c.execute('SELECT id, last_char_column from code_component where trial_id = ?', (run_num,))
-    elif (item == "last_char_line"):
-        c.execute('SELECT id, last_char_line from code_component where trial_id = ?', (run_num,))
-    elif (item == "first_char_column"):
-        c.execute('SELECT id, first_char_column from code_component where trial_id = ?', (run_num,))
-    elif (item == "first_char_line"):
-        c.execute('SELECT id, first_char_line from code_component where trial_id = ?', (run_num,))
-    id_line = c.fetchall()
-    id_line_pair = dict(id_line)
-    return id_line_pair.get(code_component_id)
-
-
-id = []
 result = []
 def get_top_level_component_id():
     '''
     returns a list of top-level code_component
     '''
-    c.execute('SELECT id from code_component where trial_id = ?', (run_num,))
-    #get all id
-    for row in c:
-        for char in row:
-            id.append(char)
-    #select the top_level_component id
+    id = sql_info.get_code_component_id()
     top_level_component_id = []
     #for code component with single lines
     line_num = 0
     for element in id:
-        if (get_basic_info(element, "type") != "module"):
+        if (sql_info.get_basic_info(element, "type") != "module"):
             #skip the first line
-            if (get_basic_info(element, "type") == "script"):
+            if (sql_info.get_basic_info(element, "type") == "script"):
                 top_level_component_id.append(element)
             else:
-                if (line_num != get_line_col_info(element, "first_char_line")):
+                if (line_num != sql_info.get_line_col_info(element, "first_char_line")):
                     top_level_component_id.append(element)
-                    line_num = get_line_col_info(element, "first_char_line")
+                    line_num = sql_info.get_line_col_info(element, "first_char_line")
 
 
     #for code component with mutiple lines
@@ -109,12 +54,12 @@ def get_top_level_component_id():
     last_line_num = 0
 
     for element in top_level_component_id:
-        if (get_basic_info(element, "type") == "script"):
+        if (sql_info.get_basic_info(element, "type") == "script"):
             result.append(element)
         else:
-            if (get_line_col_info(element, "first_char_line") > last_line_num):
+            if (sql_info.get_line_col_info(element, "first_char_line") > last_line_num):
                 result.append(element)
-                last_line_num = get_line_col_info(element, "last_char_line")
+                last_line_num = sql_info.get_line_col_info(element, "last_char_line")
  
              
     return result
@@ -124,7 +69,7 @@ def get_first_line(code_component_id):
     get the first line if there is more than one line in a code_component
     '''
     #parse the string and find \n
-    name = get_basic_info(code_component_id, "name")
+    name = sql_info.get_basic_info(code_component_id, "name")
     name_list = name.split('\n')
     return name_list[0]
     #return name
@@ -133,37 +78,26 @@ for_loop_range = {}
 def get_for_loop_range():
 
     for element in result:
-        if (get_basic_info(element, "type") == "for" or get_basic_info(element, "type") == "while" or get_basic_info(element, "type") == "if"):
+        if (sql_info.get_basic_info(element, "type") == "for" or sql_info.get_basic_info(element, "type") == "while" or sql_info.get_basic_info(element, "type") == "if"):
             #parse for val in x:\n\tif(val%2 == 0):\n\t\tcount = count + 1
             #to val
             temp = get_first_line(element).split(" ")
             line_list = []
-            line_list.append(get_line_col_info(element, "first_char_line"))
-            line_list.append(get_line_col_info(element, "last_char_line"))
+            line_list.append(sql_info.get_line_col_info(element, "first_char_line"))
+            line_list.append(sql_info.get_line_col_info(element, "last_char_line"))
             for_loop_range[temp[1]] = line_list
     return for_loop_range
 
 function_range = {}
 def get_function_range():
     for element in result:
-        if (get_basic_info(element, "type") == "function_def"):
-            temp = get_basic_info(element, "name")
+        if (sql_info.get_basic_info(element, "type") == "function_def"):
+            temp = sql_info.get_basic_info(element, "name")
             line_list = []
-            line_list.append(get_line_col_info(element, "first_char_line"))
-            line_list.append(get_line_col_info(element, "last_char_line"))
+            line_list.append(sql_info.get_line_col_info(element, "first_char_line"))
+            line_list.append(sql_info.get_line_col_info(element, "last_char_line"))
             function_range[temp] = line_list
     return function_range
-
-eval_id = []
-def get_eval_id():
-    '''
-    get a list of evaluation_id in the evaluation dependency_table_id
-    '''
-    c.execute('SELECT id from evaluation where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            eval_id.append(char)
-    return eval_id
 
 def in_for_loop(eval_cc_id):
     '''
@@ -174,8 +108,8 @@ def in_for_loop(eval_cc_id):
     for element in for_loop_range:
         #element == val
         #for_loop_range.get(element) == [3, 5]
-        if (element == get_basic_info(eval_cc_id, "name")):
-            if (for_loop_range.get(element)[0] <= get_line_col_info(eval_cc_id, "first_char_line") and get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
+        if (element == sql_info.get_basic_info(eval_cc_id, "name")):
+            if (for_loop_range.get(element)[0] <= sql_info.get_line_col_info(eval_cc_id, "first_char_line") and sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
                 return True
     return False
 
@@ -184,19 +118,19 @@ def need_update_loop_val(eval_cc_id):
     only select the latest element in for loop iterations
     '''
     for element in for_loop_range:
-        if (for_loop_range.get(element)[0] <= get_line_col_info(eval_cc_id, "first_char_line") and get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
+        if (for_loop_range.get(element)[0] <= sql_info.get_line_col_info(eval_cc_id, "first_char_line") and sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
             return True
     return False
 
 def get_func_name(evaluation_id):
-    func_name = get_basic_info(get_code_component_id_eval(evaluation_id), "name")
+    func_name = sql_info.get_basic_info(sql_info.get_code_component_id_eval(evaluation_id), "name")
     split_func_name = func_name.split("(") 
     return split_func_name[0]
 
 def in_function(eval_cc_id):
 
     for element in function_range:
-        if (function_range.get(element)[0] <= get_line_col_info(eval_cc_id, "first_char_line") and get_line_col_info(eval_cc_id, "first_char_line") <= function_range.get(element)[1]):
+        if (function_range.get(element)[0] <= sql_info.get_line_col_info(eval_cc_id, "first_char_line") and sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= function_range.get(element)[1]):
                 return True
     return False
 
@@ -209,22 +143,22 @@ def get_top_level_eval_id():
     select top level evaluation ids
     '''
     temp_top_eval_id = []
-    get_eval_id()
+    eval_id = sql_info.get_eval_id()
     get_function_range()
     get_for_loop_range()
     for element in eval_id:
-        if (get_basic_info(get_code_component_id_eval(element), "type") == "name"):
-            if (in_function(get_code_component_id_eval(element)) == False):
-                if (get_value_eval(element)!=str(None) and in_for_loop(get_code_component_id_eval(element)) == False):
-                    value = get_value_eval(element).split(" ")
+        if (sql_info.get_basic_info(sql_info.get_code_component_id_eval(element), "type") == "name"):
+            if (in_function(sql_info.get_code_component_id_eval(element)) == False):
+                if (sql_info.get_value_eval(element)!=str(None) and in_for_loop(sql_info.get_code_component_id_eval(element)) == False):
+                    value = sql_info.get_value_eval(element).split(" ")
                     if value[0] != '<module':
                         temp_top_eval_id.append(element)
-        elif (get_basic_info(get_code_component_id_eval(element), "type") == "call"):
+        elif (sql_info.get_basic_info(sql_info.get_code_component_id_eval(element), "type") == "call"):
             #get all function_def names
             for el in function_range:
                 if (get_func_name(element) == el):
                     temp_top_eval_id.append(element)
-        elif(get_basic_info(get_code_component_id_eval(element), "type") == "function_def"):
+        elif(sql_info.get_basic_info(sql_info.get_code_component_id_eval(element), "type") == "function_def"):
             temp_top_eval_id.append(element)
 
 
@@ -233,21 +167,21 @@ def get_top_level_eval_id():
     #check for/while loop
     i = 0
     while(i < len(temp_top_eval_id) - 1): 
-        if (need_update_loop_val(get_code_component_id_eval(temp_top_eval_id[i])) == True):
-            if (get_basic_info(get_code_component_id_eval(temp_top_eval_id[i]), "mode") == "r"):
+        if (need_update_loop_val(sql_info.get_code_component_id_eval(temp_top_eval_id[i])) == True):
+            if (sql_info.get_basic_info(sql_info.get_code_component_id_eval(temp_top_eval_id[i]), "mode") == "r"):
                 top_eval_id.append(temp_top_eval_id[i])
             j = i + 1
-            name_prev = get_basic_info(get_code_component_id_eval(temp_top_eval_id[i]), "name")
+            name_prev = sql_info.get_basic_info(sql_info.get_code_component_id_eval(temp_top_eval_id[i]), "name")
             temp = j
             update = False
-            while(j < len(temp_top_eval_id) and need_update_loop_val(get_code_component_id_eval(temp_top_eval_id[j])) == True):
-                name_after = get_basic_info(get_code_component_id_eval(temp_top_eval_id[j]), "name")
+            while(j < len(temp_top_eval_id) and need_update_loop_val(sql_info.get_code_component_id_eval(temp_top_eval_id[j])) == True):
+                name_after = sql_info.get_basic_info(sql_info.get_code_component_id_eval(temp_top_eval_id[j]), "name")
                 if (name_prev == name_after):
                     temp = j
                     update = True
                 j = j + 1
             if (update == True):
-                if (get_basic_info(get_code_component_id_eval(temp_top_eval_id[temp]), "mode") == "r"):
+                if (sql_info.get_basic_info(sql_info.get_code_component_id_eval(temp_top_eval_id[temp]), "mode") == "r"):
                     i = temp
                     top_eval_id.append(temp_top_eval_id[i-1])
                 else:
@@ -274,63 +208,11 @@ def value_type(value):
             return "File"
     return "Data"
 
-def file_mode(name):
-
-    '''
-    if the file_access table exist, get file information
-    '''
-    #get the count of tables with the name
-    c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='file_access' ''')
-    #if the count is 1, then table exists
-    if c.fetchone()[0]==1:
-
-        #get hash value from table
-        temp = []
-        c.execute('SELECT name, mode from file_access where trial_id = ?', (run_num,))
-        for row in c:
-            for char in row:
-                temp.append(char)
-
-        name_mode_pair = {}
-
-        i = 0
-        while i <  len(temp)-1:
-            name_mode_pair[temp[i]] = temp[i+1]
-            i=i+2
-        return name_mode_pair.get(name)
-
-def file_access_table(name):
-
-    stripped_name = name.strip("'")
-
-    '''
-    if the file_access table exist, get file information
-    '''
-    #get the count of tables with the name
-    #c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='file_access' ''')
-    #if the count is 1, then table exists
-    if (file_mode(stripped_name) == "rU"):
-
-        #get hash value from table
-        temp = []
-        c.execute('SELECT name, content_hash_before from file_access where trial_id = ?', (run_num,))
-        for row in c:
-            for char in row:
-                temp.append(char)
-
-        name_hash_pair = {}
-
-        i = 0
-        while i <  len(temp)-1:
-            name_hash_pair[temp[i]] = temp[i+1]
-            i=i+2
-        return name_hash_pair.get(stripped_name)
-
 def file_loc(name):
     '''
     if the file_access table exist, get file location
     '''
-    hash_value = file_access_table(name)
+    hash_value = sql_info.file_access_table(name)
     if (hash_value != None):
 
         result = input_db_file.split("/")
@@ -352,7 +234,7 @@ def file_loc_simple(name):
     '''
     if the file_access table exist, get file location
     '''
-    hash_value = file_access_table(name)
+    hash_value = sql_info.file_access_table(name)
     if (hash_value != None):
 
         result = input_db_file.split("/")
@@ -360,56 +242,7 @@ def file_loc_simple(name):
         result.pop(-1)
         result.pop(-1)
         result.append(name)
-        return "/".join(result)
-
-def get_elapsedTime(code_component_id):
-    '''
-    get existing elapsedTime for procedure nodes, code-component -> code_block -> activation
-    '''
-    c.execute('SELECT id from code_block where trial_id = ?', (run_num,))
-    code_block_id = []
-    for row in c:
-        for char in row:
-            code_block_id.append(char)
-
-    exist = False
-    #check if this code_component has elapsedTime
-    for element in code_block_id:
-        if (code_component_id == element):
-            exist = True
-
-    if (exist == True):
-        c.execute('SELECT start_checkpoint, code_block_id from activation where trial_id = ?', (run_num,))
-        activation = []
-        for row in c:
-            for char in row:
-                activation.append(char)
-
-        id_time_pair = {}
-        
-        #loop through index
-        for i in range(1, len(activation)):
-            if (i % 2 != 0):
-                id_time_pair[activation[i]] = activation[i-1]
-        return id_time_pair.get(code_component_id)
-
-    else:
-        return -1  
-
-def elpasedTime_timeStamp(elpasedTime):
-    '''
-    change elpasedTime in data nodes into timeStamp
-    '''
-    c.execute('SELECT start from trial where id = ?', (run_num,))
-    for row in c:
-        for element in row:
-            tempStampParser = element.replace('.', ' ').replace(':', ' ').split() 
-    elpasedTimeParser = str(elpasedTime).split(".")
-    newMSecond = int(tempStampParser[-1]) + int(elpasedTimeParser[-1])
-    newSecond = int(tempStampParser[-2]) + int(elpasedTimeParser[0])
-    tempStampParser[-2] = str(newSecond)
-    tempStampParser[-1] = str(newMSecond)
-    return tempStampParser[0] + " " + tempStampParser[1] + ":" + tempStampParser[2] + ":" + tempStampParser[3] + "." + tempStampParser[4]
+        return "/".join(result) 
 
 def check_valueType(value):
 
@@ -489,71 +322,9 @@ def check_valueType(value):
     return typeDict
 
 def isDp(code_component_id):
-    if (get_basic_info(code_component_id, "type") == "name" and get_basic_info(code_component_id, "mode") == "r"):
+    if (sql_info.get_basic_info(code_component_id, "type") == "name" and sql_info.get_basic_info(code_component_id, "mode") == "r"):
         return True
     return False
-
-def get_environment_info(attribute_id_num):
-    c.execute('SELECT value from environment_attr where id = ?', (attribute_id_num,))
-    for element in c:
-        envir = element
-    return envir[0]
-
-def getOS():
-    return get_environment_info(1) + get_environment_info(108)
-
-def get_script():
-    c.execute('SELECT value from argument where trial_id = ? and id = ?', (run_num,1,))
-    for element in c:
-        script = element
-    return script[0].strip("'")
-
-def get_script_time():
-    c.execute('SELECT finish from trial where id = ?', (run_num,))
-    for element in c:
-        start = element
-    return start[0]
-
-def get_prov_time():
-    c.execute('SELECT timestamp from tag where trial_id = ?', (run_num,))
-    for element in c:
-        start = element
-    return start[0]
-
-def get_total_elapsedTime():
-    c.execute('SELECT start from trial where id = ?', (run_num,))
-    for element in c:
-        start = element
-    startTime = start[0].split() 
-    finishTime = get_script_time().split() 
-    FMT = '%H:%M:%S.%f'
-    tdelta = datetime.strptime(finishTime[1], FMT) - datetime.strptime(startTime[1], FMT)
-    result = str(tdelta).replace('.', ' ').replace(':', ' ').split()
-    time = ""
-    if (result[0] != '0'):
-        time = result[0]
-        time +=":"
-        time += result[1]
-        time +=":"
-        time += result[2]
-        time +="."
-        time += result[3]
-
-    elif (result[1] != '00'):
-        time += result[1]
-        time +=":"
-        time += result[2]
-        time +="."
-        time += result[3]
-    elif (result[2] != '00'):
-        time += result[2]
-        time +="."
-        time += result[3]
-    elif (result[3] != '000000'):
-        time += "0"
-        time +="."
-        time += result[3]
-    return time
 
 def getVersion(library):
     version = ""
@@ -561,7 +332,7 @@ def getVersion(library):
     try:
         version = libraryValue.__version__
     except AttributeError:
-        version = get_environment_info(139)
+        version = sql_info.get_environment_info(139)
     return version
 
 def sourceScript_timestamp(file_path):
@@ -591,7 +362,7 @@ def agent():
     agent = {}
     a1 = {}
     a1["rdt:tool.name"] = "noworkflow"
-    a1["rdt:tool.version"] = get_environment_info(140)
+    a1["rdt:tool.version"] = sql_info.get_environment_info(140)
     a1["rdt:json.version"] = "2.3"
     agent["rdt:a1"] = a1
     print(json.dumps(agent, indent=4))
@@ -607,15 +378,15 @@ def activityKey():
         procedure_node = {}
         procedure_node["rdt:name"] = get_first_line(result[j])
         procedure_node["rdt:type"] = "Operation"
-        if (get_elapsedTime(result[j]) == None):
+        if (sql_info.get_elapsedTime(result[j]) == None):
             procedure_node["rdt:elapsedTime"] = -1
         else:
-            procedure_node["rdt:elapsedTime"] = get_elapsedTime(result[j])
+            procedure_node["rdt:elapsedTime"] = sql_info.get_elapsedTime(result[j])
         procedure_node["rdt:scriptNum"] = 1
-        procedure_node["rdt:startLine"] = get_line_col_info(result[j], "first_char_line")
-        procedure_node["rdt:startCol"] = get_line_col_info(result[j], "first_char_column")
-        procedure_node["rdt:endLine"] = get_line_col_info(result[j], "last_char_line")
-        procedure_node["rdt:endCol"] = get_line_col_info(result[j], "last_char_column")
+        procedure_node["rdt:startLine"] = sql_info.get_line_col_info(result[j], "first_char_line")
+        procedure_node["rdt:startCol"] = sql_info.get_line_col_info(result[j], "first_char_column")
+        procedure_node["rdt:endLine"] = sql_info.get_line_col_info(result[j], "last_char_line")
+        procedure_node["rdt:endCol"] = sql_info.get_line_col_info(result[j], "last_char_column")
 
         activity["rdt:p" + str(j+1)] = procedure_node
         j = j+1
@@ -634,27 +405,27 @@ def entityKey():
     entity = {}
     while number < length:
         data_node = {}
-        data_node["rdt:name"] = get_basic_info(get_code_component_id_eval(top_eval_id[number]), "name")
-        data_node["rdt:value"] = get_value_eval(top_eval_id[number])
-        data_node["rdt:valType"] = str(check_valueType(get_value_eval(top_eval_id[number])))
-        if (file_access_table(get_value_eval(top_eval_id[number])) == None):
+        data_node["rdt:name"] = sql_info.get_basic_info(sql_info.get_code_component_id_eval(top_eval_id[number]), "name")
+        data_node["rdt:value"] = sql_info.get_value_eval(top_eval_id[number])
+        data_node["rdt:valType"] = str(check_valueType(sql_info.get_value_eval(top_eval_id[number])))
+        if (sql_info.file_access_table(sql_info.get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:type"] = "Data"
         else:
             data_node["rdt:type"] = "File"
         data_node["rdt:scope"]  = ""
         data_node["rdt:fromEnv"] = False
-        if (file_access_table(get_value_eval(top_eval_id[number])) == None):
+        if (sql_info.file_access_table(sql_info.get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:hash"] = ""
         else:
-            data_node["rdt:hash"] = file_access_table(get_value_eval(top_eval_id[number]))  
-        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_basic_info(top_eval_id[number],"checkpoint"))
-        if (file_loc(get_value_eval(top_eval_id[number])) == None):
+            data_node["rdt:hash"] = sql_info.file_access_table(sql_info.get_value_eval(top_eval_id[number]))  
+        data_node["rdt:timestamp"] = sql_info.elpasedTime_timeStamp(sql_info.get_basic_info(top_eval_id[number],"checkpoint"))
+        if (file_loc(sql_info.get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:location"] = ""
         else:
-            data_node["rdt:location"] = file_loc(get_value_eval(top_eval_id[number]))
-            if (isDuplicate(sourcedScripts, file_loc_simple(get_value_eval(top_eval_id[number]))) == False):      
-                sourcedScripts.append(file_loc_simple(get_value_eval(top_eval_id[number])))
-                sourcedScripts_hash.append(file_loc(get_value_eval(top_eval_id[number])))
+            data_node["rdt:location"] = file_loc(sql_info.get_value_eval(top_eval_id[number]))
+            if (isDuplicate(sourcedScripts, file_loc_simple(sql_info.get_value_eval(top_eval_id[number]))) == False):      
+                sourcedScripts.append(file_loc_simple(sql_info.get_value_eval(top_eval_id[number])))
+                sourcedScripts_hash.append(file_loc(sql_info.get_value_eval(top_eval_id[number])))
 
         entity["rdt:d" + str(number+1)] = data_node
         d_evalId[top_eval_id[number]] = number+1
@@ -668,22 +439,22 @@ def entityKey():
     environment = {}
 
     environment["rdt:name"] = "environment"
-    environment["rdt:architecture"] = get_environment_info(136)
-    environment["rdt:operatingSystem"] = getOS()
+    environment["rdt:architecture"] = sql_info.get_environment_info(136)
+    environment["rdt:operatingSystem"] = sql_info.getOS()
     environment["rdt:language"] = "R"
-    environment["rdt:langVersion"] = "Python version " + get_environment_info(139)
-    environment["rdt:script"] = get_script()
-    environment["rdt:scriptTimeStamp"] = get_script_time()
-    environment["rdt:totalElapsedTime"] = get_total_elapsedTime()
+    environment["rdt:langVersion"] = "Python version " + sql_info.get_environment_info(139)
+    environment["rdt:script"] = sql_info.get_script()
+    environment["rdt:scriptTimeStamp"] = sql_info.get_script_time()
+    environment["rdt:totalElapsedTime"] = sql_info.get_total_elapsedTime()
     if (len(sourcedScripts) == 0):
         environment["rdt:sourcedScripts"] = ""
         environment["rdt:sourcedScriptTimeStamps"] = ""
     else:   
         environment["rdt:sourcedScripts"] = sourcedScripts
         environment["rdt:sourcedScriptTimeStamps"] = sourceScript_ts
-    environment["rdt:workingDirectory"] = get_environment_info(121)
-    environment["rdt:provDirectory"] = get_environment_info(121) + "/.noworkflow"
-    environment["rdt:provTimestamp"] = get_prov_time()
+    environment["rdt:workingDirectory"] = sql_info.get_environment_info(121)
+    environment["rdt:provDirectory"] = sql_info.get_environment_info(121) + "/.noworkflow"
+    environment["rdt:provTimestamp"] = sql_info.get_prov_time()
     environment["rdt:hashAlgorithm"] = "SHA 1"
 
     entity["rdt:environment"] = environment
@@ -697,7 +468,7 @@ def entityKey():
     prov_type["type"] = "xsd:QName"
 
     for element in result:
-        name = get_basic_info(element, "name").split()
+        name = sql_info.get_basic_info(element, "name").split()
         if (name[0] == "import"):
             library = {}
             library["name"] = name[1]
@@ -729,29 +500,10 @@ def write_json(dictionary, output_json_file):
 
 def inRange(eval_cc, cc):
     #start line of cc <= start line of eval_cc <= finish line of cc 
-    if ((get_line_col_info(cc, "first_char_line") <= get_line_col_info(eval_cc, "first_char_line")) and (get_line_col_info(eval_cc, "first_char_line") <= get_line_col_info(cc, "last_char_line"))):
+    if ((sql_info.get_line_col_info(cc, "first_char_line") <= sql_info.get_line_col_info(eval_cc, "first_char_line")) and (sql_info.get_line_col_info(eval_cc, "first_char_line") <= sql_info.get_line_col_info(cc, "last_char_line"))):
         return True
     else:
         return False
-
-
-lower_level_component_id = []
-def get_lower_level_component(code_component_id):
-    '''
-    return the details of the lower-level code_componemt for each top-level code_component
-    '''
-    if (len(lower_level_component_id)!=0):
-        i = 0
-        while i < len(lower_level_component_id):
-            lower_level_component_id[i] = None
-            i+=1
-
-    line_num = get_line_col_info(code_component_id, "first_char_line")
-    for element in id:
-        if (element != 1 and element != code_component_id):
-            if (get_line_col_info(element, "first_char_line") == line_num):
-                lower_level_component_id.append(element)
-    return lower_level_component_id
 
 wasGeneratedBy = {}
 used = {}
@@ -777,19 +529,19 @@ def edges():
             #no lower_level_cc_id_list anymore
             #check whether the cc in eval is in the line range of a procedure node
             #if it is, create edges
-            if (inRange(get_code_component_id_eval(data2[data2_index]), element3)):
+            if (inRange(sql_info.get_code_component_id_eval(data2[data2_index]), element3)):
                 #check if it is dp edges
                 #for data nodes
                 #if code_component table shows 'x', 'name', 'r'
                 #than it is dp instead of pd
-                n = get_basic_info(get_code_component_id_eval(data2[data2_index]), "name")
-                v = get_value_eval(data2[data2_index])
+                n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[data2_index]), "name")
+                v = sql_info.get_value_eval(data2[data2_index])
                 prev_index = data2_index-1
-                prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
-                prev_v = get_value_eval(data2[prev_index])
+                prev_n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[prev_index]), "name")
+                prev_v = sql_info.get_value_eval(data2[prev_index])
 
                 #check function data nodes       
-                if (get_basic_info(get_code_component_id_eval(data2[data2_index]), "type") == "call"):
+                if (sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[data2_index]), "type") == "call"):
                     #dp nodes
                     func_name = get_func_name(data2[data2_index])
                     while(prev_index >= 0):
@@ -801,17 +553,17 @@ def edges():
                             count_dp = count_dp + 1
                             break;
                         prev_index -= 1
-                        prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
+                        prev_n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[prev_index]), "name")
                 else:
 
-                    if (isDp(get_code_component_id_eval(data2[data2_index])) == False):
+                    if (isDp(sql_info.get_code_component_id_eval(data2[data2_index])) == False):
                         #check whether there's duplicates
                         hasDuplicate = False
                         while(prev_index>=0):
                             if (n == prev_n and v == prev_v):
                                 #check whether the line numbers of p ndoes are the same
-                                if (get_line_col_info(get_code_component_id_eval(data2[data2_index]), "first_char_line") == 
-                                    get_line_col_info(get_code_component_id_eval(data2[prev_index]), "first_char_line")):
+                                if (sql_info.get_line_col_info(sql_info.get_code_component_id_eval(data2[data2_index]), "first_char_line") == 
+                                    sql_info.get_line_col_info(sql_info.get_code_component_id_eval(data2[prev_index]), "first_char_line")):
                                     if (preTemp!=temp):
                                         pd = {}
                                         pd["prov:activity"] = "rdt:p" + str(temp)
@@ -821,8 +573,8 @@ def edges():
                                     hasDuplicate = True;
                                     break;
                             prev_index-=1
-                            prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
-                            prev_v = get_value_eval(data2[prev_index])
+                            prev_n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[prev_index]), "name")
+                            prev_v = sql_info.get_value_eval(data2[prev_index])
 
                         if (hasDuplicate == False):
                             pd = {}
@@ -835,8 +587,8 @@ def edges():
                         #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
                         while(n != prev_n or v != prev_v and prev_index>=0):
                             prev_index -=1
-                            prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
-                            prev_v = get_value_eval(data2[prev_index])
+                            prev_n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[prev_index]), "name")
+                            prev_v = sql_info.get_value_eval(data2[prev_index])
                         if (n!=prev_n or v !=prev_v):
 
                             dp = {}
@@ -870,7 +622,7 @@ def __main__():
     edges()
     outputdict["wasGeneratedBy"] = wasGeneratedBy
     outputdict["used"] = used
-    write_json(outputdict, get_environment_info(121) + "/now.json")
+    write_json(outputdict, sql_info.get_environment_info(121) + "/J2.json")
 
 __main__()
 
