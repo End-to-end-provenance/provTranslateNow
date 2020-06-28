@@ -15,8 +15,8 @@ from datetime import datetime
 
 
 #real python scripts
-# input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
-# run_num = 4
+input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
+run_num = 4
 
 # input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
 # run_num = 6
@@ -25,42 +25,46 @@ from datetime import datetime
 # input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
 # run_num = 21
 #bugs hear
-input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-run_num = 17
+
+# input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
+# run_num = 26
 
 db = sqlite3.connect(input_db_file, uri=True)
 c = db.cursor()
 
-def get_name(code_component_id):
-    '''
-    get name from code_component_id in code_component table
-    '''
-    id_name_pair = {}
-    c.execute('SELECT id, name from code_component where trial_id = ?', (run_num,))
-    i=1
-    for row in c:
-        for char in row:
-            if (isinstance(char, str)):
-                id_name_pair[i] = char
-                i = i+1
-    return id_name_pair.get(code_component_id)
+def get_basic_info(id, info):
+    #cc_id
+    #get name from code_component_id in code_component table
+    if (info == "name"):     
+        c.execute('SELECT id, name from code_component where trial_id = ?', (run_num,))
+    #get type from code_component_id in code_component table
+    elif (info == "type"):
+        c.execute('SELECT id, type from code_component where trial_id = ?', (run_num,))
+    #get mode from code_component_id in code_component table
+    elif (info == "mode" ):
+        c.execute('SELECT id, mode from code_component where trial_id = ?', (run_num,))
+    #eval_id
+    elif (info == "code_component_id"):
+        c.execute('SELECT id, code_component_id from evaluation where trial_id = ?', (run_num,))
+    elif (info == "repr"):
+        c.execute('SELECT id, repr from evaluation where trial_id = ?', (run_num,))
+    #get time from evaluation table
+    elif(info == "checkpoint"):
+        c.execute('SELECT id, checkpoint from evaluation where trial_id = ?', (run_num,))
 
-def get_type(code_component_id):
-    '''
-    get type from code_component_id in code_component table
-    '''
-    id_type_pair = {}
-    c.execute('SELECT id, type from code_component where trial_id = ?', (run_num,))
-    i=1
-    for row in c:
-        for char in row:
-            if (isinstance(char, str)):
-                id_type_pair[i] = char
-                i = i+1
-    return id_type_pair.get(code_component_id)
+    id_info = c.fetchall()
+    id_info_pair = dict(id_info)
+    return id_info_pair.get(id)
+
+def get_code_component_id_eval(evaluation_id):
+    #get the code_component_id from evaluation_id in the evaluation table
+    return get_basic_info(evaluation_id, "code_component_id")
+
+def get_value_eval(evaluation_id):
+    #get repr(value) from evaluation table
+    return get_basic_info(evaluation_id, "repr")
 
 def get_line_col_info(code_component_id, item):
-    temp = []
     if (item == "last_char_column"):
         c.execute('SELECT id, last_char_column from code_component where trial_id = ?', (run_num,))
     elif (item == "last_char_line"):
@@ -69,39 +73,10 @@ def get_line_col_info(code_component_id, item):
         c.execute('SELECT id, first_char_column from code_component where trial_id = ?', (run_num,))
     elif (item == "first_char_line"):
         c.execute('SELECT id, first_char_line from code_component where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_line_pair = {}
-    a=1
-    #loop through index
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_line_pair[a] = temp[i]
-            a = a+1
+    id_line = c.fetchall()
+    id_line_pair = dict(id_line)
     return id_line_pair.get(code_component_id)
 
-def get_mode(code_component_id):
-    '''
-    get mode from code_component_id in code_component table
-    '''
-    id_mode_pair = {}
-    c.execute('SELECT id, mode from code_component where trial_id = ?', (run_num,))
-    i=1
-    for row in c:
-        for char in row:
-            if (isinstance(char, str)):
-                if (char == "r"):
-                    id_mode_pair[i] = "read"
-                elif (char == "w"):
-                    id_mode_pair[i] = "written"
-                elif (char == "d"):
-                    id_mode_pair[i] = "deleted"
-                else:
-                    id_mode_pair[i] = char
-                i = i+1
-    return id_mode_pair.get(code_component_id)
 
 id = []
 result = []
@@ -119,9 +94,9 @@ def get_top_level_component_id():
     #for code component with single lines
     line_num = 0
     for element in id:
-        if (get_type(element) != "module"):
+        if (get_basic_info(element, "type") != "module"):
             #skip the first line
-            if (get_type(element) == "script"):
+            if (get_basic_info(element, "type") == "script"):
                 top_level_component_id.append(element)
             else:
                 if (line_num != get_line_col_info(element, "first_char_line")):
@@ -134,7 +109,7 @@ def get_top_level_component_id():
     last_line_num = 0
 
     for element in top_level_component_id:
-        if (get_type(element) == "script"):
+        if (get_basic_info(element, "type") == "script"):
             result.append(element)
         else:
             if (get_line_col_info(element, "first_char_line") > last_line_num):
@@ -149,7 +124,7 @@ def get_first_line(code_component_id):
     get the first line if there is more than one line in a code_component
     '''
     #parse the string and find \n
-    name = get_name(code_component_id)
+    name = get_basic_info(code_component_id, "name")
     name_list = name.split('\n')
     return name_list[0]
     #return name
@@ -158,7 +133,7 @@ for_loop_range = {}
 def get_for_loop_range():
 
     for element in result:
-        if (get_type(element) == "for" or get_type(element) == "while" or get_type(element) == "if"):
+        if (get_basic_info(element, "type") == "for" or get_basic_info(element, "type") == "while" or get_basic_info(element, "type") == "if"):
             #parse for val in x:\n\tif(val%2 == 0):\n\t\tcount = count + 1
             #to val
             temp = get_first_line(element).split(" ")
@@ -171,66 +146,13 @@ def get_for_loop_range():
 function_range = {}
 def get_function_range():
     for element in result:
-        if (get_type(element) == "function_def"):
-            temp = get_name(element)
+        if (get_basic_info(element, "type") == "function_def"):
+            temp = get_basic_info(element, "name")
             line_list = []
             line_list.append(get_line_col_info(element, "first_char_line"))
             line_list.append(get_line_col_info(element, "last_char_line"))
             function_range[temp] = line_list
     return function_range
-
-
-def get_code_component_id_eval(evaluation_id):
-    '''
-    get the code_component_id from evaluation_id in the evaluation table
-    '''
-    temp = []
-    c.execute('SELECT id, code_component_id from evaluation where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_code_pair = {}
-    a=1
-    #loop through index
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_code_pair[a] = temp[i]
-            a = a+1
-    return id_code_pair.get(evaluation_id)
-
-def get_value_eval(evaluation_id):
-    '''
-    get repr(value) from evaluation table
-    '''
-    id_value_pair = {}
-    c.execute('SELECT id, repr from evaluation where trial_id = ?', (run_num,))
-    i=1
-    for row in c:
-        for char in row:
-            if (isinstance(char, str)):
-                id_value_pair[i] = char
-                i = i+1
-    return id_value_pair.get(evaluation_id)
-
-def get_time_eval(evaluation_id):
-    '''
-    get time from evaluation table
-    '''
-    temp = []
-    c.execute('SELECT id, checkpoint from evaluation where trial_id = ?', (run_num,))
-    for row in c:
-        for char in row:
-            temp.append(char)
-
-    id_time_pair = {}
-    a=1
-    #loop through index
-    for i in range(len(temp)):
-        if (i % 2 != 0):
-            id_time_pair[a] = temp[i]
-            a = a+1
-    return id_time_pair.get(evaluation_id)
 
 eval_id = []
 def get_eval_id():
@@ -249,11 +171,10 @@ def in_for_loop(eval_cc_id):
     E.G. for val in x
     delete val
     '''
-    get_for_loop_range()
     for element in for_loop_range:
         #element == val
         #for_loop_range.get(element) == [3, 5]
-        if (element == get_name(eval_cc_id)):
+        if (element == get_basic_info(eval_cc_id, "name")):
             if (for_loop_range.get(element)[0] <= get_line_col_info(eval_cc_id, "first_char_line") and get_line_col_info(eval_cc_id, "first_char_line") <= for_loop_range.get(element)[1]):
                 return True
     return False
@@ -268,7 +189,7 @@ def need_update_loop_val(eval_cc_id):
     return False
 
 def get_func_name(evaluation_id):
-    func_name = get_name(get_code_component_id_eval(evaluation_id))
+    func_name = get_basic_info(get_code_component_id_eval(evaluation_id), "name")
     split_func_name = func_name.split("(") 
     return split_func_name[0]
 
@@ -290,19 +211,20 @@ def get_top_level_eval_id():
     temp_top_eval_id = []
     get_eval_id()
     get_function_range()
+    get_for_loop_range()
     for element in eval_id:
-        if (get_type(get_code_component_id_eval(element)) == "name"):
+        if (get_basic_info(get_code_component_id_eval(element), "type") == "name"):
             if (in_function(get_code_component_id_eval(element)) == False):
                 if (get_value_eval(element)!=str(None) and in_for_loop(get_code_component_id_eval(element)) == False):
                     value = get_value_eval(element).split(" ")
                     if value[0] != '<module':
                         temp_top_eval_id.append(element)
-        elif (get_type(get_code_component_id_eval(element)) == "call"):
+        elif (get_basic_info(get_code_component_id_eval(element), "type") == "call"):
             #get all function_def names
             for el in function_range:
                 if (get_func_name(element) == el):
                     temp_top_eval_id.append(element)
-        elif(get_type(get_code_component_id_eval(element)) == "function_def"):
+        elif(get_basic_info(get_code_component_id_eval(element), "type") == "function_def"):
             temp_top_eval_id.append(element)
 
 
@@ -312,20 +234,20 @@ def get_top_level_eval_id():
     i = 0
     while(i < len(temp_top_eval_id) - 1): 
         if (need_update_loop_val(get_code_component_id_eval(temp_top_eval_id[i])) == True):
-            if (get_mode(get_code_component_id_eval(temp_top_eval_id[i])) == "read"):
+            if (get_basic_info(get_code_component_id_eval(temp_top_eval_id[i]), "mode") == "r"):
                 top_eval_id.append(temp_top_eval_id[i])
             j = i + 1
-            name_prev = get_name(get_code_component_id_eval(temp_top_eval_id[i]))
+            name_prev = get_basic_info(get_code_component_id_eval(temp_top_eval_id[i]), "name")
             temp = j
             update = False
             while(j < len(temp_top_eval_id) and need_update_loop_val(get_code_component_id_eval(temp_top_eval_id[j])) == True):
-                name_after = get_name(get_code_component_id_eval(temp_top_eval_id[j]))
+                name_after = get_basic_info(get_code_component_id_eval(temp_top_eval_id[j]), "name")
                 if (name_prev == name_after):
                     temp = j
                     update = True
                 j = j + 1
             if (update == True):
-                if (get_mode(get_code_component_id_eval(temp_top_eval_id[temp])) == "read"):
+                if (get_basic_info(get_code_component_id_eval(temp_top_eval_id[temp]), "mode") == "r"):
                     i = temp
                     top_eval_id.append(temp_top_eval_id[i-1])
                 else:
@@ -564,10 +486,10 @@ def check_valueType(value):
         typeDict["dimension"] = dimension
         typeDict["type"] = typeField
 
-        return typeDict
+    return typeDict
 
 def isDp(code_component_id):
-    if (get_type(code_component_id) == "name" and get_mode(code_component_id) == "read"):
+    if (get_basic_info(code_component_id, "type") == "name" and get_basic_info(code_component_id, "mode") == "r"):
         return True
     return False
 
@@ -712,7 +634,7 @@ def entityKey():
     entity = {}
     while number < length:
         data_node = {}
-        data_node["rdt:name"] = get_name(get_code_component_id_eval(top_eval_id[number]))
+        data_node["rdt:name"] = get_basic_info(get_code_component_id_eval(top_eval_id[number]), "name")
         data_node["rdt:value"] = get_value_eval(top_eval_id[number])
         data_node["rdt:valType"] = str(check_valueType(get_value_eval(top_eval_id[number])))
         if (file_access_table(get_value_eval(top_eval_id[number])) == None):
@@ -725,7 +647,7 @@ def entityKey():
             data_node["rdt:hash"] = ""
         else:
             data_node["rdt:hash"] = file_access_table(get_value_eval(top_eval_id[number]))  
-        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_time_eval(top_eval_id[number]))
+        data_node["rdt:timestamp"] = elpasedTime_timeStamp(get_basic_info(top_eval_id[number],"checkpoint"))
         if (file_loc(get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:location"] = ""
         else:
@@ -775,7 +697,7 @@ def entityKey():
     prov_type["type"] = "xsd:QName"
 
     for element in result:
-        name = get_name(element).split()
+        name = get_basic_info(element, "name").split()
         if (name[0] == "import"):
             library = {}
             library["name"] = name[1]
@@ -860,14 +782,14 @@ def edges():
                 #for data nodes
                 #if code_component table shows 'x', 'name', 'r'
                 #than it is dp instead of pd
-                n = get_name(get_code_component_id_eval(data2[data2_index]))
+                n = get_basic_info(get_code_component_id_eval(data2[data2_index]), "name")
                 v = get_value_eval(data2[data2_index])
                 prev_index = data2_index-1
-                prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
                 prev_v = get_value_eval(data2[prev_index])
 
                 #check function data nodes       
-                if (get_type(get_code_component_id_eval(data2[data2_index])) == "call"):
+                if (get_basic_info(get_code_component_id_eval(data2[data2_index]), "type") == "call"):
                     #dp nodes
                     func_name = get_func_name(data2[data2_index])
                     while(prev_index >= 0):
@@ -879,7 +801,7 @@ def edges():
                             count_dp = count_dp + 1
                             break;
                         prev_index -= 1
-                        prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                        prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
                 else:
 
                     if (isDp(get_code_component_id_eval(data2[data2_index])) == False):
@@ -899,7 +821,7 @@ def edges():
                                     hasDuplicate = True;
                                     break;
                             prev_index-=1
-                            prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                            prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
                             prev_v = get_value_eval(data2[prev_index])
 
                         if (hasDuplicate == False):
@@ -913,7 +835,7 @@ def edges():
                         #if the previous data nodes has same name and value, than pass, and create a dp for the previous data node
                         while(n != prev_n or v != prev_v and prev_index>=0):
                             prev_index -=1
-                            prev_n = get_name(get_code_component_id_eval(data2[prev_index]))
+                            prev_n = get_basic_info(get_code_component_id_eval(data2[prev_index]), "name")
                             prev_v = get_value_eval(data2[prev_index])
                         if (n!=prev_n or v !=prev_v):
 
@@ -948,7 +870,8 @@ def __main__():
     edges()
     outputdict["wasGeneratedBy"] = wasGeneratedBy
     outputdict["used"] = used
-    write_json(outputdict, "/Users/huiyunpeng/Desktop/now.json")
+    write_json(outputdict, get_environment_info(121) + "/now.json")
+
 __main__()
 
 
