@@ -175,17 +175,9 @@ class Sql_info:
 
         if (exist == True):
             Sql_info.c.execute('SELECT start_checkpoint, code_block_id from activation where trial_id = ?', (Sql_info.run_num,))
-            activation = []
-            for row in Sql_info.c:
-                for char in row:
-                    activation.append(char)
 
-            id_time_pair = {}
-            
-            #loop through index
-            for i in range(1, len(activation)):
-                if (i % 2 != 0):
-                    id_time_pair[activation[i]] = activation[i-1]
+            id_time = Sql_info.c.fetchall()
+            id_time_pair = dict(id_time)
             return id_time_pair.get(code_component_id)
 
         else:
@@ -203,18 +195,10 @@ class Sql_info:
         if Sql_info.c.fetchone()[0]==1:
 
             #get hash value from table
-            temp = []
             Sql_info.c.execute('SELECT name, mode from file_access where trial_id = ?', (Sql_info.run_num,))
-            for row in Sql_info.c:
-                for char in row:
-                    temp.append(char)
 
-            name_mode_pair = {}
-
-            i = 0
-            while i <  len(temp)-1:
-                name_mode_pair[temp[i]] = temp[i+1]
-                i=i+2
+            name_mode = Sql_info.c.fetchall()
+            name_mode_pair = dict(name_mode)
             return name_mode_pair.get(name)
 
     def file_access_table(self,name):
@@ -224,23 +208,12 @@ class Sql_info:
         '''
         if the file_access table exist, get file information
         '''
-        #get the count of tables with the name
-        #c.execute(''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='file_access' ''')
-        #if the count is 1, then table exists
         if (Sql_info.file_mode(self, stripped_name) == "rU"):
 
-            #get hash value from table
-            temp = []
+            # #get hash value from table
             Sql_info.c.execute('SELECT name, content_hash_before from file_access where trial_id = ?', (Sql_info.run_num,))
-            for row in Sql_info.c:
-                for char in row:
-                    temp.append(char)
 
-            name_hash_pair = {}
-
-            i = 0
-            while i <  len(temp)-1:
-                name_hash_pair[temp[i]] = temp[i+1]
-                i=i+2
+            name_hash = Sql_info.c.fetchall()
+            name_hash_pair = dict(name_hash)
             return name_hash_pair.get(stripped_name)
 
