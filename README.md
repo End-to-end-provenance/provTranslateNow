@@ -38,8 +38,8 @@ cd provTranslateNow
 ```
 python3 translator.py
 ```
-you will be ask to enter the path of your db.sqlite file and a trial id
-example input:
+you will be ask to enter the path of your db.sqlite file and a trial id. 
+Here is an example input in the terminal:
 ```
 Enter the path of your db.sqlite file: /Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite
 Enter the trial id: 6
