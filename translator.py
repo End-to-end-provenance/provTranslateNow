@@ -1,35 +1,25 @@
 import sqlite3
 import json
 from sql_info import Sql_info
-from node_ids import get_top_level_component_id, get_top_level_eval_id, get_first_line,get_func_name
-from helper_functions import file_loc, file_loc_simple, check_valueType, isDp, getVersion, sourceScript_timestamp, isDuplicate, inRange
+from node_ids import Node_ids
+from helper_functions import Helper_functions
 #Huiyun Peng
 #10 Mar 2020
 
 #running noworkflow command: python3 -m noworkflow run test5.py
 
-#data is stored in input_db_file
-#call cursor() to create an object of it and use its execute() method to perform SQL
 
-
-#real python scripts
-# input_db_file = '/Users/huiyunpeng/Desktop/demo_1/.noworkflow/db.sqlite'
-# run_num = 4
-
-input_db_file = '/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
-run_num = 6
-
-#simple ones
-# input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-# run_num = 21
-
-# input_db_file = '/Users/huiyunpeng/Desktop/.noworkflow/db.sqlite'
-# run_num = 25
-
+#set up
+input_db_file = input("Enter the path of your db.sqlite file: ")
+#'/Users/huiyunpeng/Desktop/demo/.noworkflow/db.sqlite'
+#run_num = 6
+run_num = input("Enter the trial id: ")
 sql_info = Sql_info(input_db_file, run_num)
+node_ids = Node_ids(sql_info)
+helper_functions = Helper_functions(sql_info)
+result = node_ids.get_top_level_component_id()
+top_eval_id = node_ids.get_top_level_eval_id()
 
-result = get_top_level_component_id()
-top_eval_id = get_top_level_eval_id()
 
 def prefix():
     prefix = {}
@@ -56,7 +46,7 @@ def activityKey():
     j = 0
     while j < length2:
         procedure_node = {}
-        procedure_node["rdt:name"] = get_first_line(result[j])
+        procedure_node["rdt:name"] = node_ids.get_first_line(result[j])
         procedure_node["rdt:type"] = "Operation"
         if (sql_info.get_elapsedTime(result[j]) == None):
             procedure_node["rdt:elapsedTime"] = -1
@@ -76,8 +66,6 @@ def activityKey():
 d_evalId = {}
 def entityKey():
 
-    sourcedScripts = []
-    sourcedScripts_hash = []
     #data nodes
     length = len(top_eval_id)
     number = 0
@@ -85,8 +73,8 @@ def entityKey():
     while number < length:
         data_node = {}
         data_node["rdt:name"] = sql_info.get_basic_info(sql_info.get_code_component_id_eval(top_eval_id[number]), "name")
-        data_node["rdt:value"] = sql_info.get_value_eval(top_eval_id[number])
-        data_node["rdt:valType"] = str(check_valueType(sql_info.get_value_eval(top_eval_id[number])))
+        data_node["rdt:value"] = sql_info.get_value_eval(top_eval_id[number]).strip("'")
+        data_node["rdt:valType"] = str(helper_functions.check_valueType(sql_info.get_value_eval(top_eval_id[number])))
         if (sql_info.file_access_table(sql_info.get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:type"] = "Data"
         else:
@@ -98,22 +86,14 @@ def entityKey():
         else:
             data_node["rdt:hash"] = sql_info.file_access_table(sql_info.get_value_eval(top_eval_id[number]))  
         data_node["rdt:timestamp"] = sql_info.elpasedTime_timeStamp(sql_info.get_basic_info(top_eval_id[number],"checkpoint"))
-        if (file_loc(sql_info.get_value_eval(top_eval_id[number])) == None):
+        if (helper_functions.file_loc_simple(sql_info.get_value_eval(top_eval_id[number])) == None):
             data_node["rdt:location"] = ""
         else:
-            data_node["rdt:location"] = file_loc(sql_info.get_value_eval(top_eval_id[number]))
-            if (isDuplicate(sourcedScripts, file_loc_simple(sql_info.get_value_eval(top_eval_id[number]))) == False):      
-                sourcedScripts.append(file_loc_simple(sql_info.get_value_eval(top_eval_id[number])))
-                sourcedScripts_hash.append(file_loc(sql_info.get_value_eval(top_eval_id[number])))
+            data_node["rdt:location"] = helper_functions.file_loc_simple(sql_info.get_value_eval(top_eval_id[number]))
 
         entity["rdt:d" + str(number+1)] = data_node
         d_evalId[top_eval_id[number]] = number+1
         number = number + 1
-
-    #environment:
-    sourceScript_ts = []
-    for element in sourcedScripts_hash:
-        sourceScript_ts.append(sourceScript_timestamp(element))
 
     environment = {}
 
@@ -125,12 +105,8 @@ def entityKey():
     environment["rdt:script"] = sql_info.get_script()
     environment["rdt:scriptTimeStamp"] = sql_info.get_script_time()
     environment["rdt:totalElapsedTime"] = sql_info.get_total_elapsedTime()
-    if (len(sourcedScripts) == 0):
-        environment["rdt:sourcedScripts"] = ""
-        environment["rdt:sourcedScriptTimeStamps"] = ""
-    else:   
-        environment["rdt:sourcedScripts"] = sourcedScripts
-        environment["rdt:sourcedScriptTimeStamps"] = sourceScript_ts
+    environment["rdt:sourcedScripts"] = ""
+    environment["rdt:sourcedScriptTimeStamps"] = ""
     environment["rdt:workingDirectory"] = sql_info.get_environment_info(121)
     environment["rdt:provDirectory"] = sql_info.get_environment_info(121) + "/.noworkflow"
     environment["rdt:provTimestamp"] = sql_info.get_prov_time()
@@ -151,7 +127,7 @@ def entityKey():
         if (name[0] == "import"):
             library = {}
             library["name"] = name[1]
-            library["version"] = getVersion(name[1])
+            library["version"] = helper_functions.getVersion(name[1])
             library["prov_type"] = prov_type
             entity["rdt:l" + str(library_count)] = library
             library_count += 1
@@ -198,7 +174,7 @@ def edges():
             #no lower_level_cc_id_list anymore
             #check whether the cc in eval is in the line range of a procedure node
             #if it is, create edges
-            if (inRange(sql_info.get_code_component_id_eval(data2[data2_index]), element3)):
+            if (helper_functions.inRange(sql_info.get_code_component_id_eval(data2[data2_index]), element3)):
                 #check if it is dp edges
                 #for data nodes
                 #if code_component table shows 'x', 'name', 'r'
@@ -212,7 +188,7 @@ def edges():
                 #check function data nodes       
                 if (sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[data2_index]), "type") == "call"):
                     #dp nodes
-                    func_name = get_func_name(data2[data2_index])
+                    func_name = node_ids.get_func_name(data2[data2_index])
                     while(prev_index >= 0):
                         if (func_name == prev_n):
                             dp = {}
@@ -225,7 +201,7 @@ def edges():
                         prev_n = sql_info.get_basic_info(sql_info.get_code_component_id_eval(data2[prev_index]), "name")
                 else:
 
-                    if (isDp(sql_info.get_code_component_id_eval(data2[data2_index])) == False):
+                    if (helper_functions.isDp(sql_info.get_code_component_id_eval(data2[data2_index])) == False):
                         #check whether there's duplicates
                         hasDuplicate = False
                         while(prev_index>=0):
@@ -283,7 +259,6 @@ def write_json(dictionary, output_json_file):
         json.dump(dictionary, outfile, indent=4)
 
 def __main__():
-
     #output to a json file
     outputdict = {}
     outputdict["prefix"] = prefix()
@@ -294,7 +269,7 @@ def __main__():
     wasGeneratedBy, used = edges()
     outputdict["wasGeneratedBy"] = wasGeneratedBy
     outputdict["used"] = used
-    write_json(outputdict, sql_info.get_environment_info(121) + "/J2.json")
+    write_json(outputdict, sql_info.get_environment_info(121) + "/now.json")
 
 __main__()
 
