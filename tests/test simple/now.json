@@ -1,0 +1,107 @@
+{
+    "prefix": {
+        "prov": "http://www.w3.org/ns/prov#",
+        "rdt": "https://github.com/End-to-end-provenance/ExtendedProvJson/blob/master/JSON-format.md"
+    },
+    "agent": {
+        "rdt:a1": {
+            "rdt:tool.name": "noworkflow",
+            "rdt:tool.version": "2.0.0a0",
+            "rdt:json.version": "2.3"
+        }
+    },
+    "activity": {
+        "rdt:p1": {
+            "rdt:name": "test_simple.py",
+            "rdt:type": "Operation",
+            "rdt:elapsedTime": -1,
+            "rdt:scriptNum": 1,
+            "rdt:startLine": 1,
+            "rdt:startCol": 0,
+            "rdt:endLine": 2,
+            "rdt:endCol": 8
+        },
+        "rdt:p2": {
+            "rdt:name": "x = 1",
+            "rdt:type": "Operation",
+            "rdt:elapsedTime": -1,
+            "rdt:scriptNum": 1,
+            "rdt:startLine": 1,
+            "rdt:startCol": 0,
+            "rdt:endLine": 1,
+            "rdt:endCol": 5
+        },
+        "rdt:p3": {
+            "rdt:name": "print(x)",
+            "rdt:type": "Operation",
+            "rdt:elapsedTime": -1,
+            "rdt:scriptNum": 1,
+            "rdt:startLine": 2,
+            "rdt:startCol": 0,
+            "rdt:endLine": 2,
+            "rdt:endCol": 8
+        }
+    },
+    "entity": {
+        "rdt:d1": {
+            "rdt:name": "x",
+            "rdt:value": "1",
+            "rdt:valType": "int",
+            "rdt:type": "Data",
+            "rdt:scope": "",
+            "rdt:fromEnv": false,
+            "rdt:hash": "",
+            "rdt:timestamp": "2020-07-02 10:54:19.17870611700118696",
+            "rdt:location": ""
+        },
+        "rdt:d2": {
+            "rdt:name": "x",
+            "rdt:value": "1",
+            "rdt:valType": "int",
+            "rdt:type": "Data",
+            "rdt:scope": "",
+            "rdt:fromEnv": false,
+            "rdt:hash": "",
+            "rdt:timestamp": "2020-07-02 10:54:19.17883520000118699",
+            "rdt:location": ""
+        },
+        "rdt:environment": {
+            "rdt:name": "environment",
+            "rdt:architecture": "64bit",
+            "rdt:operatingSystem": "Darwin18.6.0",
+            "rdt:language": "Python",
+            "rdt:langVersion": "Python version 3.8.1",
+            "rdt:script": "/Users/huiyunpeng/Desktop/test_simple.py",
+            "rdt:scriptTimeStamp": "2020-07-02 10:54:19.378882",
+            "rdt:totalElapsedTime": "0.260180",
+            "rdt:sourcedScripts": "",
+            "rdt:sourcedScriptTimeStamps": "",
+            "rdt:workingDirectory": "/Users/huiyunpeng/Desktop",
+            "rdt:provDirectory": "/Users/huiyunpeng/Desktop/.noworkflow",
+            "rdt:provTimestamp": "2020-07-02 10:54:19.387448",
+            "rdt:hashAlgorithm": "SHA 1"
+        }
+    },
+    "wasInformedBy": {
+        "rdt: pp1": {
+            "prov:informant": "rdt:p1",
+            "prov:informed": "rdt:p2"
+        },
+        "rdt: pp2": {
+            "prov:informant": "rdt:p2",
+            "prov:informed": "rdt:p3"
+        }
+    },
+    "wasGeneratedBy": {
+        "rdt:pd1": {
+            "prov:activity": "rdt:p2",
+            "prov:entity": "rdt:d1"
+        }
+    },
+    "used": {
+        "rdt:dp1": {
+            "prov:entity": "rdt:d1",
+            "prov:activity": "rdt:p3"
+        }
+    }
+}
