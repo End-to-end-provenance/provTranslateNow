@@ -1,3 +1,7 @@
+#Huiyun Peng
+#10 Mar 2020
+#This is the class of helper functions. 
+#It contains functions to get information from sql table and convert in to the type we want
 from sql_info import Sql_info
 import ast
 
@@ -8,9 +12,10 @@ class Helper_functions:
     def __init__(self, sql_info):
         Helper_functions.sql_info = sql_info
 
-    def file_loc_simple(self,name):
+    def file_loc_simple(self, name):
         '''
-        if the file_access table exist, get file location
+        if the file_access table exist, get the file location
+        parameter: name is the file name
         '''
         hash_value = Helper_functions.sql_info.file_access_table(name)
         if (hash_value != None):
@@ -18,6 +23,10 @@ class Helper_functions:
             return result + "/" + name.strip("'")
 
     def check_valueType(self, value):
+        '''
+        get the type of a value
+        parameter: value is the value in the evaluation table
+        '''
 
         #get container
         temp = list(value)
@@ -95,11 +104,18 @@ class Helper_functions:
         return typeDict
 
     def isDp(self, code_component_id):
+        '''
+        check whether this procedure node sets a data or uses a data
+        parameter: code component id in the code_component table
+        '''
         if (Helper_functions.sql_info.get_basic_info(code_component_id, "type") == "name" and Helper_functions.sql_info.get_basic_info(code_component_id, "mode") == "r"):
             return True
         return False
 
     def getVersion(self, library):
+        '''
+        get the version of a python library that is imported in the script
+        '''
         version = ""
         libraryValue = __import__(library, fromlist=[''])
         try:
@@ -109,6 +125,11 @@ class Helper_functions:
         return version
 
     def inRange(self, eval_cc, cc):
+        '''
+        check whether this data node is in the line range of this procedure node
+        parameter: eval_cc: code_component_id in the evaluation table
+                   cc: code_component id
+        '''
         #start line of cc <= start line of eval_cc <= finish line of cc 
         if ((Helper_functions.sql_info.get_line_col_info(cc, "first_char_line") <= Helper_functions.sql_info.get_line_col_info(eval_cc, "first_char_line")) and (Helper_functions.sql_info.get_line_col_info(eval_cc, "first_char_line") <= Helper_functions.sql_info.get_line_col_info(cc, "last_char_line"))):
             return True

@@ -1,3 +1,7 @@
+#Huiyun Peng
+#10 Mar 2020
+#This is the class of sql information. 
+#It contains functions to query noWorkflow sql database
 import sqlite3
 from datetime import datetime
 class Sql_info:
@@ -13,9 +17,11 @@ class Sql_info:
 
 
     def get_code_component_id(self):
+        '''
+        get a list of code_component_id in the code_component table
+        '''
         id = []
         Sql_info.c.execute('SELECT id from code_component where trial_id = ?', (Sql_info.run_num,))
-        #get all id
         for row in Sql_info.c:
             for char in row:
                 id.append(char)
@@ -24,7 +30,7 @@ class Sql_info:
 
     def get_eval_id(self):
         '''
-        get a list of evaluation_id in the evaluation dependency_table_id
+        get a list of evaluation_id in the evaluation table
         '''
         eval_id = []
         Sql_info.c.execute('SELECT id from evaluation where trial_id = ?', (Sql_info.run_num,))
@@ -35,7 +41,11 @@ class Sql_info:
 
 
     def get_basic_info(self, id, info):
-        #cc_id
+        '''
+        get the name/type/mode of procedure nodes
+        get the code_component_id/repr(value)/checkpoint of data nodes
+        '''
+        #id is cc_id
         #get name from code_component_id in code_component table
         if (info == "name"):     
             Sql_info.c.execute('SELECT id, name from code_component where trial_id = ?', (Sql_info.run_num,))
@@ -45,7 +55,7 @@ class Sql_info:
         #get mode from code_component_id in code_component table
         elif (info == "mode" ):
             Sql_info.c.execute('SELECT id, mode from code_component where trial_id = ?', (Sql_info.run_num,))
-        #eval_id
+        #id is eval_id
         elif (info == "code_component_id"):
             Sql_info.c.execute('SELECT id, code_component_id from evaluation where trial_id = ?', (Sql_info.run_num,))
         elif (info == "repr"):
@@ -59,14 +69,17 @@ class Sql_info:
         return id_info_pair.get(id)
 
     def get_code_component_id_eval(self, evaluation_id):
-        #get the code_component_id from evaluation_id in the evaluation table
+        '''get the code_component_id from evaluation_id in the evaluation table'''
         return Sql_info.get_basic_info(self, evaluation_id, "code_component_id")
 
     def get_value_eval(self, evaluation_id):
-        #get repr(value) from evaluation table
+        '''get repr(value) from evaluation table'''
         return Sql_info.get_basic_info(self, evaluation_id, "repr")
 
     def get_line_col_info(self, code_component_id, item):
+        '''
+        get the line and column information of procedure nodes
+        '''
         if (item == "last_char_column"):
             Sql_info.c.execute('SELECT id, last_char_column from code_component where trial_id = ?', (Sql_info.run_num,))
         elif (item == "last_char_line"):
@@ -80,33 +93,51 @@ class Sql_info:
         return id_line_pair.get(code_component_id)
 
     def get_environment_info(self, attribute_id_num):
+        '''
+        get environment information of environment nodes
+        '''
         Sql_info.c.execute('SELECT value from environment_attr where id = ?', (attribute_id_num,))
         for element in Sql_info.c:
             envir = element
         return envir[0]
 
     def getOS(self):
+        '''
+        get the operating system information
+        '''
         return Sql_info.get_environment_info(self, 1) + Sql_info.get_environment_info(self, 108)
 
     def get_script(self):
+        '''
+        get the script name
+        '''
         Sql_info.c.execute('SELECT value from argument where trial_id = ? and id = ?', (Sql_info.run_num,1,))
         for element in Sql_info.c:
             script = element
         return script[0].strip("'")
 
     def get_script_time(self):
+        '''
+        get the time this script being executed
+        '''
         Sql_info.c.execute('SELECT finish from trial where id = ?', (Sql_info.run_num,))
         for element in Sql_info.c:
             start = element
         return start[0]
 
     def get_prov_time(self):
+        '''
+        get the time the provenance being collected
+        '''
         Sql_info.c.execute('SELECT timestamp from tag where trial_id = ?', (Sql_info.run_num,))
         for element in Sql_info.c:
             start = element
         return start[0]
 
     def get_total_elapsedTime(self):
+        '''
+        get the total elapsedTime of the script
+        '''
         Sql_info.c.execute('SELECT start from trial where id = ?', (Sql_info.run_num,))
         for element in Sql_info.c:
             start = element
@@ -202,12 +233,10 @@ class Sql_info:
             return name_mode_pair.get(name)
 
     def file_access_table(self,name):
-
-        stripped_name = name.strip("'")
-
         '''
         if the file_access table exist, get file information
         '''
+        stripped_name = name.strip("'")
         if (Sql_info.file_mode(self, stripped_name) == "rU"):
 
             # #get hash value from table

@@ -1,7 +1,10 @@
+#Huiyun Peng
+#10 Mar 2020
+#This is the class of node ids. 
+#It contains functions to get code_component_id and evaluation_id from the sql table, and select the top level ids from them.
 from sql_info import Sql_info
 
 class Node_ids:
-
 
     global sql_info
 
@@ -11,10 +14,12 @@ class Node_ids:
     result = []
     def get_top_level_component_id(self):
         '''
-        returns a list of top-level code_component
+        returns a list of top-level code_component ids
+        It only contains the first line of functions/for loops/while loops/if-else statements, and other code with only a single line
         '''
         id = Node_ids.sql_info.get_code_component_id()
         top_level_component_id = []
+
         #for code component with single lines
         line_num = 0
         for element in id:
@@ -45,11 +50,13 @@ class Node_ids:
 
     def get_first_line(self, code_component_id):
         '''
-        get the first line if there is more than one line in a code_component
+        get the first few lines of code of functions, loops, and if statements
         '''
-        #parse the string and find \n
+
         name = Node_ids.sql_info.get_basic_info(code_component_id, "name")
+        #parse the string
         name_list = name.split('\n')
+        #if there are more than three lines, only shows the first three lines
         if (len(name_list) > 3):
             return name_list[0] + name_list[1] + name_list[2]
         else:
@@ -57,11 +64,12 @@ class Node_ids:
 
     for_loop_range = {}
     def get_for_loop_range(self):
-
+        '''
+        get the range of loops and if statements
+        '''
         for element in Node_ids.result:
             if (Node_ids.sql_info.get_basic_info(element, "type") == "for" or Node_ids.sql_info.get_basic_info(element, "type") == "while" or Node_ids.sql_info.get_basic_info(element, "type") == "if"):
-                #parse for val in x:\n\tif(val%2 == 0):\n\t\tcount = count + 1
-                #to val
+                #e.g. from "for val in x" get "val", and set it to the key of the dictionary, value is the range
                 temp = Node_ids.get_first_line(self, element).split(" ")
                 line_list = []
                 line_list.append(Node_ids.sql_info.get_line_col_info(element, "first_char_line"))
@@ -70,10 +78,14 @@ class Node_ids:
         return Node_ids.for_loop_range
 
     function_range = {}
-    def get_function_range(self,):
+    def get_function_range(self):
+        '''
+        get the range of functions declarations 
+        '''
         for element in Node_ids.result:
             if (Node_ids.sql_info.get_basic_info(element, "type") == "function_def"):
                 temp = Node_ids.sql_info.get_basic_info(element, "name")
+                #key is the function name, value is the range
                 line_list = []
                 line_list.append(Node_ids.sql_info.get_line_col_info(element, "first_char_line"))
                 line_list.append(Node_ids.sql_info.get_line_col_info(element, "last_char_line"))
@@ -82,13 +94,9 @@ class Node_ids:
 
     def in_for_loop(self,eval_cc_id):
         '''
-        delete datas inside for loop iterations
-        E.G. for val in x
-        delete val
+        check whether the data is inside the for loop iterations
         '''
         for element in Node_ids.for_loop_range:
-            #element == val
-            #for_loop_range.get(element) == [3, 5]
             if (element == Node_ids.sql_info.get_basic_info(eval_cc_id, "name")):
                 if (Node_ids.for_loop_range.get(element)[0] <= Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") and Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= Node_ids.for_loop_range.get(element)[1]):
                     return True
@@ -96,7 +104,7 @@ class Node_ids:
 
     def need_update_loop_val(self,eval_cc_id):
         '''
-        only select the latest element in for loop iterations
+        only select the last data element in for loop iterations
         '''
         for element in Node_ids.for_loop_range:
             if (Node_ids.for_loop_range.get(element)[0] <= Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") and Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= Node_ids.for_loop_range.get(element)[1]):
@@ -104,12 +112,17 @@ class Node_ids:
         return False
 
     def get_func_name(self,evaluation_id):
+        '''
+        get the function name in calls
+        '''
         func_name = Node_ids.sql_info.get_basic_info(Node_ids.sql_info.get_code_component_id_eval(evaluation_id), "name")
         split_func_name = func_name.split("(") 
         return split_func_name[0]
 
     def in_function(self,eval_cc_id):
-
+        '''
+        check whether the data is inside the functions
+        '''
         for element in Node_ids.function_range:
             if (Node_ids.function_range.get(element)[0] <= Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") and Node_ids.sql_info.get_line_col_info(eval_cc_id, "first_char_line") <= Node_ids.function_range.get(element)[1]):
                     return True
@@ -118,12 +131,16 @@ class Node_ids:
 
     def get_top_level_eval_id(self):
         '''
-        select top level evaluation ids
+        returns a list of top-level code_component ids
+        It only contains the value with type "name"/"call"/"function_def"
+        It removes redundent data nodes inside the loop/function
         '''
         temp_top_eval_id = []
         eval_id = Node_ids.sql_info.get_eval_id()
         Node_ids.get_function_range(self)
         Node_ids.get_for_loop_range(self)
+
+        #select the value with type "name"/"call"/"function_def"
         for element in eval_id:
             if (Node_ids.sql_info.get_basic_info(Node_ids.sql_info.get_code_component_id_eval(element), "type") == "name"):
                 if (Node_ids.in_function(self, Node_ids.sql_info.get_code_component_id_eval(element)) == False):
@@ -140,7 +157,7 @@ class Node_ids:
                 temp_top_eval_id.append(element)
 
         top_eval_id = []
-        #check for/while loop
+        #check whether the data is in loops and delete datas in the iterations
         i = 0
         while(i < len(temp_top_eval_id) - 1): 
             if (Node_ids.need_update_loop_val(self, Node_ids.sql_info.get_code_component_id_eval(temp_top_eval_id[i])) == True):
